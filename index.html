@@ -10,7 +10,7 @@
             margin: 20px;
             max-width: 600px;
         }
-        input, button {
+        input, select, button {
             display: block;
             margin: 10px 0;
             padding: 5px;
@@ -28,6 +28,17 @@
         th {
             background: #f5f5f5;
         }
+        .extra-payments-list {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+        }
+        .extra-payment-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 <body>
@@ -38,7 +49,7 @@
     <label>Loan Amount: <input type="number" id="loanAmount"></label>
     <label>Interest Rate (%): <input type="number" id="interestRate" step="0.01"></label>
     <label>Loan Term (years): <input type="number" id="loanTerm"></label>
-    
+
     <h3>Extra Payments</h3>
     <label>Amount: <input type="number" id="extraAmount"></label>
     <label>Type: 
@@ -50,6 +61,8 @@
     <label>Start Date: <input type="date" id="extraStart"></label>
     <label>End Date (if recurring): <input type="date" id="extraEnd"></label>
     <button onclick="addExtraPayment()">Add Extra Payment</button>
+
+    <div class="extra-payments-list" id="extraPaymentsList"></div>
 
     <button onclick="calculate()">Calculate</button>
     <button onclick="exportJson()">Export JSON</button>
@@ -81,7 +94,28 @@
             if (!amount || !start) return;
 
             extraPayments.push({ amount, type, start, end });
-            alert("Extra payment added.");
+            updateExtraPaymentsList();
+        }
+
+        function updateExtraPaymentsList() {
+            const listContainer = document.getElementById('extraPaymentsList');
+            listContainer.innerHTML = "";
+
+            extraPayments.forEach((payment, index) => {
+                const div = document.createElement("div");
+                div.classList.add("extra-payment-item");
+                div.innerHTML = `
+                    ${payment.type} - $${payment.amount} on ${payment.start} 
+                    ${payment.type === "monthly" ? `until ${payment.end || 'indefinite'}` : ''}
+                    <button onclick="removeExtraPayment(${index})">Remove</button>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function removeExtraPayment(index) {
+            extraPayments.splice(index, 1);
+            updateExtraPaymentsList();
         }
 
         function calculate() {
@@ -121,15 +155,6 @@
                     principal += balance;
                     balance = 0;
                 }
-
-                schedule.push({
-                    num: paymentNum,
-                    date: paymentDate.toISOString().split('T')[0],
-                    payment: (monthlyPayment + extraPayment).toFixed(2),
-                    principal: principal.toFixed(2),
-                    interest: interest.toFixed(2),
-                    balance: balance.toFixed(2)
-                });
 
                 let row = tableBody.insertRow();
                 row.insertCell(0).textContent = paymentNum;
@@ -172,6 +197,7 @@
                 document.getElementById('interestRate').value = data.interestRate;
                 document.getElementById('loanTerm').value = data.loanTerm;
                 extraPayments = data.extraPayments || [];
+                updateExtraPaymentsList();
                 alert("Data loaded.");
             };
             reader.readAsText(file);
