@@ -3,306 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loan Amortization Calculator</title>
+    <title>Amortization Schedule with Extra Payments</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        /* Basic Reset */
+        * {
             margin: 0;
             padding: 0;
-            background: #f4f4f4;
-            color: #333;
+            box-sizing: border-box;
         }
-        .container {
-            max-width: 800px;
-            margin: 20px auto;
+
+        /* Body and Container */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
             padding: 20px;
-            background: #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
         h1 {
-            font-size: 24px;
             text-align: center;
+            margin-bottom: 20px;
         }
-        label {
-            font-weight: bold;
+
+        /* File Input */
+        input[type="file"] {
             display: block;
-            margin-top: 10px;
-        }
-        input, select, button {
-            width: 100%;
+            margin: 20px auto;
             padding: 10px;
-            margin-top: 5px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        button {
-            background: #007bff;
+            background-color: #007bff;
             color: white;
             border: none;
+            border-radius: 4px;
             cursor: pointer;
         }
-        button:hover {
-            background: #0056b3;
+
+        input[type="file"]:hover {
+            background-color: #0056b3;
         }
-        .schedule {
-            margin-top: 20px;
-        }
+
+        /* Table */
         table {
             width: 100%;
+            margin-top: 20px;
             border-collapse: collapse;
-            margin-top: 10px;
         }
+
         th, td {
-            padding: 10px;
-            border: 1px solid #ddd;
-            text-align: left;
+            padding: 8px;
+            text-align: right;
+            border-bottom: 1px solid #ddd;
         }
+
         th {
-            background: #007bff;
+            background-color: #007bff;
             color: white;
         }
-        .extra-payments {
-            margin-top: 10px;
+
+        /* Button */
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
         }
-        .extra-payments div {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
+
+        button:hover {
+            background-color: #218838;
         }
-        .extra-payments div input, .extra-payments div select, .extra-payments div button {
-            flex: 1;
-            min-width: calc(20% - 10px);
-        }
-        .extra-payments div button {
-            flex: none;
-            min-width: auto;
-            width: auto;
-        }
-        .extra-payments div input[type="month"], .extra-payments div input[type="date"] {
-            max-width: 150px;
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            table, th, td {
+                font-size: 14px;
+            }
+
+            .container {
+                padding: 15px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Loan Amortization Calculator</h1>
-        <form id="loanForm">
-            <label for="startDate">Loan Start Date:</label>
-            <input type="date" id="startDate" required>
 
-            <label for="loanAmount">Loan Amount:</label>
-            <input type="number" id="loanAmount" required>
+<div class="container">
+    <h1>Amortization Schedule with Extra Payments</h1>
 
-            <label for="interestRate">Annual Interest Rate (%):</label>
-            <input type="number" id="interestRate" step="0.01" required>
-
-            <label for="loanTerm">Loan Term (Years):</label>
-            <input type="number" id="loanTerm" required>
-
-            <label for="scheduleType">Amortization Schedule:</label>
-            <select id="scheduleType">
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-            </select>
-
-            <div class="extra-payments" id="extraPayments">
-                <h2>Adhoc Extra Payments</h2>
-                <div>
-                    <label>Amount:</label>
-                    <input type="number" placeholder="Extra Payment Amount" class="extraPaymentAmount">
-                    <label>Recurring:</label>
-                    <select class="extraPaymentType" onchange="toggleRecurringFields(this)">
-                        <option value="one-time">One-Time</option>
-                        <option value="recurring">Recurring</option>
-                    </select>
-                    <label>Begin:</label>
-                    <input type="date" placeholder="Start Date" class="recurringStart">
-                    <label>End:</label>
-                    <input type="date" placeholder="End Date" class="recurringEnd" disabled>
-                    <button type="button" onclick="removeExtraPayment(this)">Remove</button>
-                </div>
-            </div>
-
-            <button type="button" onclick="addExtraPayment()">Add Extra Payment</button>
-
-            <button type="button" onclick="generateSchedule()">Generate Schedule</button>
-            <button type="button" onclick="exportData()">Export to JSON</button>
-            <input type="file" id="fileInput" accept=".json" onchange="importData()" style="margin-top: 10px;">
-        </form>
-
-        <div class="schedule" id="schedule"></div>
+    <input type="file" id="json-file" accept=".json" />
+    
+    <div id="schedule-container">
+        <!-- The table will be populated dynamically -->
     </div>
+    
+    <button id="download-csv">Download CSV</button>
+</div>
 
-    <script>
-        function addExtraPayment() {
-            const extraPaymentsDiv = document.getElementById('extraPayments');
-            const newPaymentDiv = document.createElement('div');
-            newPaymentDiv.innerHTML = `
-                <label>Amount:</label>
-                <input type="number" placeholder="Extra Payment Amount" class="extraPaymentAmount">
-                <label>Recurring:</label>
-                <select class="extraPaymentType" onchange="toggleRecurringFields(this)">
-                    <option value="one-time">One-Time</option>
-                    <option value="recurring">Recurring</option>
-                </select>
-                <label>Begin:</label>
-                <input type="date" placeholder="Start Date" class="recurringStart">
-                <label>End:</label>
-                <input type="date" placeholder="End Date" class="recurringEnd" disabled>
-                <button type="button" onclick="removeExtraPayment(this)">Remove</button>
-            `;
-            extraPaymentsDiv.appendChild(newPaymentDiv);
+<script>
+// Helper function to calculate monthly payment
+function calculateMonthlyPayment(loanAmount, interestRate, months) {
+    let monthlyInterestRate = (interestRate / 100) / 12;
+    let payment = loanAmount * monthlyInterestRate / (1 - Math.pow(1 + monthlyInterestRate, -months));
+    return payment;
+}
+
+// Function to parse the extra payments and apply them to the schedule
+function processExtraPayments(extraPayments, scheduleStartDate) {
+    let extraPaymentsMap = {};
+
+    extraPayments.forEach(payment => {
+        if (payment.type === 'one-time') {
+            extraPaymentsMap[payment.when] = parseFloat(payment.amount);
+        } else if (payment.type.startsWith('recurring')) {
+            let startDate = payment.begin;
+            let endDate = payment.thru;
+            let paymentAmount = parseFloat(payment.amount);
+            
+            let currentDate = new Date(startDate + '-01');
+            let endDateObj = new Date(endDate + '-01');
+            while (currentDate <= endDateObj) {
+                let dateKey = currentDate.getFullYear() + '-' + (currentDate.getMonth() + 1).toString().padStart(2, '0');
+                extraPaymentsMap[dateKey] = (extraPaymentsMap[dateKey] || 0) + paymentAmount;
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
         }
+    });
 
-        function removeExtraPayment(button) {
-            button.parentElement.remove();
-        }
+    return extraPaymentsMap;
+}
 
-        function toggleRecurringFields(selectElement) {
-            const parentDiv = selectElement.parentElement;
-            const isRecurring = selectElement.value === 'recurring';
-            parentDiv.querySelector('.recurringEnd').disabled = !isRecurring;
-        }
+// Function to generate amortization schedule
+function generateAmortizationSchedule(data) {
+    const { loanAmount, interestRate, loanTerm, extraPayments, scheduleType, startDate, outputColumns } = data;
 
-        function generateSchedule() {
-            const startDate = document.getElementById('startDate').value;
-            const loanAmount = parseFloat(document.getElementById('loanAmount').value);
-            const interestRate = parseFloat(document.getElementById('interestRate').value) / 100;
-            const loanTerm = parseInt(document.getElementById('loanTerm').value);
-            const scheduleType = document.getElementById('scheduleType').value;
-            const extraPayments = Array.from(document.getElementsByClassName('extraPaymentAmount')).map((_, i) => {
-                return {
-                    amount: parseFloat(document.getElementsByClassName('extraPaymentAmount')[i].value) || 0,
-                    type: document.getElementsByClassName('extraPaymentType')[i].value,
-                    start: document.getElementsByClassName('recurringStart')[i].value,
-                    end: document.getElementsByClassName('recurringEnd')[i].value
-                };
+    let months = loanTerm * 12;
+    let monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, months);
+    let balance = parseFloat(loanAmount);
+    let date = new Date(startDate + '-01');
+    let extraPaymentsMap = processExtraPayments(extraPayments, startDate);
+
+    let schedule = [];
+    for (let i = 0; i < months; i++) {
+        let interestPayment = balance * (interestRate / 100) / 12;
+        let principalPayment = monthlyPayment - interestPayment;
+        let extraPayment = extraPaymentsMap[`${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`] || 0;
+
+        balance -= principalPayment + extraPayment;
+
+        schedule.push({
+            Date: date.toISOString().split('T')[0],
+            Principal: principalPayment.toFixed(2),
+            Interest: interestPayment.toFixed(2),
+            'Extra Principal': extraPayment.toFixed(2),
+            Balance: balance.toFixed(2)
+        });
+
+        date.setMonth(date.getMonth() + 1);
+    }
+
+    return schedule;
+}
+
+// Function to render the schedule in HTML
+function renderSchedule(schedule) {
+    const tableContainer = document.getElementById('schedule-container');
+    const table = document.createElement('table');
+    const headerRow = document.createElement('tr');
+
+    schedule[0] && Object.keys(schedule[0]).forEach(key => {
+        const th = document.createElement('th');
+        th.innerText = key;
+        headerRow.appendChild(th);
+    });
+
+    table.appendChild(headerRow);
+
+    schedule.forEach(row => {
+        const tr = document.createElement('tr');
+        Object.values(row).forEach(value => {
+            const td = document.createElement('td');
+            td.innerText = value;
+            tr.appendChild(td);
+        });
+        table.appendChild(tr);
+    });
+
+    tableContainer.innerHTML = '';
+    tableContainer.appendChild(table);
+}
+
+// Function to convert schedule to CSV
+function convertToCSV(schedule) {
+    const header = Object.keys(schedule[0]);
+    const rows = schedule.map(row => Object.values(row));
+
+    let csv = header.join(',') + '\n';
+    rows.forEach(row => {
+        csv += row.join(',') + '\n';
+    });
+
+    return csv;
+}
+
+// Function to handle file input and process the data
+document.getElementById('json-file').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file && file.type === 'application/json') {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = JSON.parse(e.target.result);
+            const schedule = generateAmortizationSchedule(data);
+            renderSchedule(schedule);
+
+            // Enable the download CSV button
+            document.getElementById('download-csv').addEventListener('click', function() {
+                const csv = convertToCSV(schedule);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'amortization_schedule.csv';
+                link.click();
             });
+        };
+        reader.readAsText(file);
+    }
+});
+</script>
 
-            let balance = loanAmount;
-            let balanceWithoutExtra = loanAmount;
-            let monthlyRate = interestRate / 12;
-            let monthlyPayment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -loanTerm * 12));
-            let schedule = [];
-
-            if (scheduleType === 'monthly') {
-                for (let i = 0; i < loanTerm * 12; i++) {
-                    let interest = balance * monthlyRate;
-                    let principal = monthlyPayment - interest;
-
-                    let currentDate = new Date(startDate);
-                    currentDate.setMonth(currentDate.getMonth() + i);
-                    const formattedDate = currentDate.toISOString().split('T')[0];
-
-                    let extraPayment = 0;
-                    extraPayments.forEach(extra => {
-                        const recurringStart = new Date(extra.start);
-                        const recurringEnd = new Date(extra.end);
-                        if (extra.type === 'recurring' && currentDate >= recurringStart && currentDate <= recurringEnd) {
-                            extraPayment = extra.amount;
-                        } else if (extra.type === 'one-time' && currentDate.toISOString().split('T')[0] === extra.start) {
-                            extraPayment = extra.amount;
-                        }
-                    });
-
-                    let totalPrincipal = principal + extraPayment;
-                    balanceWithoutExtra -= principal;
-                    balance -= totalPrincipal;
-
-                    if (balance < 0) balance = 0;
-                    if (balanceWithoutExtra < 0) balanceWithoutExtra = 0;
-
-                    schedule.push({
-                        period: i + 1,
-                        date: formattedDate,
-                        payment: monthlyPayment.toFixed(2),
-                        principal: principal.toFixed(2),
-                        interest: interest.toFixed(2),
-                        extraPayment: extraPayment.toFixed(2),
-                        totalPrincipal: totalPrincipal.toFixed(2),
-                        balanceWithExtra: balance.toFixed(2),
-                        balanceWithoutExtra: balanceWithoutExtra.toFixed(2)
-                    });
-
-                    if (balance <= 0) break;
-                }
-            }
-
-            displaySchedule(schedule);
-        }
-
-        function displaySchedule(schedule) {
-            const scheduleDiv = document.getElementById('schedule');
-            scheduleDiv.innerHTML = '<table><tr><th>Period</th><th>Date</th><th>Payment</th><th>Principal</th><th>Interest</th><th>Extra Payment</th><th>Total Principal</th><th>Balance (With Extra)</th><th>Balance (Without Extra)</th></tr>' + 
-                schedule.map(row => `<tr><td>${row.period}</td><td>${row.date}</td><td>${row.payment}</td><td>${row.principal}</td><td>${row.interest}</td><td>${row.extraPayment}</td><td>${row.totalPrincipal}</td><td>${row.balanceWithExtra}</td><td>${row.balanceWithoutExtra}</td></tr>`).join('') + 
-                '</table>';
-        }
-
-        function exportData() {
-            const data = {
-                startDate: document.getElementById('startDate').value,
-                loanAmount: document.getElementById('loanAmount').value,
-                interestRate: document.getElementById('interestRate').value,
-                loanTerm: document.getElementById('loanTerm').value,
-                scheduleType: document.getElementById('scheduleType').value,
-                extraPayments: Array.from(document.getElementsByClassName('extraPaymentAmount')).map((_, i) => {
-                    return {
-                        amount: document.getElementsByClassName('extraPaymentAmount')[i].value,
-                        type: document.getElementsByClassName('extraPaymentType')[i].value,
-                        start: document.getElementsByClassName('recurringStart')[i].value,
-                        end: document.getElementsByClassName('recurringEnd')[i].value
-                    };
-                })
-            };
-
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'loan_data.json';
-            link.click();
-        }
-
-        function importData() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const data = JSON.parse(e.target.result);
-                    document.getElementById('startDate').value = data.startDate;
-                    document.getElementById('loanAmount').value = data.loanAmount;
-                    document.getElementById('interestRate').value = data.interestRate;
-                    document.getElementById('loanTerm').value = data.loanTerm;
-                    document.getElementById('scheduleType').value = data.scheduleType;
-
-                    // Clear existing extra payments and add imported ones
-                    const extraPaymentsDiv = document.getElementById('extraPayments');
-                    extraPaymentsDiv.innerHTML = '<h2>Adhoc Extra Payments</h2>';
-                    data.extraPayments.forEach(extra => {
-                        const newPaymentDiv = document.createElement('div');
-                        newPaymentDiv.innerHTML = `
-                            <label>Amount:</label>
-                            <input type="number" placeholder="Extra Payment Amount" class="extraPaymentAmount" value="${extra.amount}">
-                            <label>Recurring:</label>
-                            <select class="extraPaymentType" onchange="toggleRecurringFields(this)">
-                                <option value="one-time" ${extra.type === 'one-time' ? 'selected' : ''}>One-Time</option>
-                                <option value="recurring" ${extra.type === 'recurring' ? 'selected' : ''}>Recurring</option>
-                            </select>
-                            <label>Begin:</label>
-                            <input type="date" placeholder="Start Date" class="recurringStart" value="${extra.start}">
-                            <label>End:</label>
-                            <input type="date" placeholder="End Date" class="recurringEnd" value="${extra.end}" ${extra.type === 'one-time' ? 'disabled' : ''}>
-                            <button type="button" onclick="removeExtraPayment(this)">Remove</button>
-                        `;
-                        extraPaymentsDiv.appendChild(newPaymentDiv);
-                    });
-                };
-                reader.readAsText(file);
-            }
-        }
-    </script>
 </body>
 </html>
