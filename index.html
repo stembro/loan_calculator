@@ -79,17 +79,14 @@
             <label for="loanTerm">Loan Term (Years):</label>
             <input type="number" id="loanTerm" required>
 
-            <label for="scheduleType">Amortization Schedule:</label>
-            <select id="scheduleType">
-                <option value="monthly">Monthly</option>
-            </select>
-
             <h2>Adhoc Extra Payments</h2>
             <div class="extra-payments" id="extraPayments">
                 <button type="button" onclick="addExtraPayment()">Add Extra Payment</button>
             </div>
 
             <button type="button" onclick="generateSchedule()">Generate Schedule</button>
+            <button type="button" onclick="exportData()">Export to JSON</button>
+            <input type="file" id="fileInput" accept=".json" onchange="importData()" style="margin-top: 10px;">
         </form>
 
         <div class="schedule" id="schedule"></div>
@@ -208,6 +205,38 @@
             }
 
             displaySchedule(schedule);
+        }
+
+        function exportData() {
+            const data = {
+                startDate: document.getElementById('startDate').value,
+                loanAmount: document.getElementById('loanAmount').value,
+                interestRate: document.getElementById('interestRate').value,
+                loanTerm: document.getElementById('loanTerm').value,
+            };
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'loan_data.json';
+            link.click();
+        }
+
+        function importData() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = JSON.parse(e.target.result);
+                    document.getElementById('startDate').value = data.startDate;
+                    document.getElementById('loanAmount').value = data.loanAmount;
+                    document.getElementById('interestRate').value = data.interestRate;
+                    document.getElementById('loanTerm').value = data.loanTerm;
+                };
+                reader.readAsText(file);
+            }
         }
     </script>
 </body>
