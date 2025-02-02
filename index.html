@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amortization Schedule with Extra Payments</title>
+    <title>Amortization Schedule Generator</title>
     <style>
         /* Basic Reset */
         * {
@@ -99,7 +99,7 @@
 <body>
 
 <div class="container">
-    <h1>Amortization Schedule with Extra Payments</h1>
+    <h1>Amortization Schedule Generator v0.7</h1>
 
     <input type="file" id="json-file" accept=".json" />
     
@@ -119,8 +119,8 @@ function calculateMonthlyPayment(loanAmount, interestRate, months) {
 }
 
 // Convert a year-month string to an index (1 = first month of loan term, 360 = last month)
-function convertDateToIndex(yearMonth, startDate) {
-    const startYearMonth = startDate.split('-');
+function convertDateToIndex(yearMonth, loanStartDate) {
+    const startYearMonth = loanStartDate.split('-');
     const [startYear, startMonth] = startYearMonth;
     const [year, month] = yearMonth.split('-');
 
@@ -131,21 +131,21 @@ function convertDateToIndex(yearMonth, startDate) {
 }
 
 // Function to parse the extra payments and apply them to the schedule
-function processExtraPayments(extraPayments, startDate) {
+function processExtraPayments(extraPayments, loanStartDate) {
     let extraPaymentsMap = {};
 
     extraPayments.forEach(payment => {
         if (payment.type === 'one-time') {
             // Convert one-time payment date to index
-            const index = convertDateToIndex(payment.when, startDate);
+            const index = convertDateToIndex(payment.when, loanStartDate);
             extraPaymentsMap[index] = (extraPaymentsMap[index] || 0) + parseFloat(payment.amount); // Additive
         } else if (payment.type.startsWith('recurring')) {
-            let startDate = payment.begin;
+            let recurringStartDate = payment.begin; // Renamed to avoid conflict with loan start date
             let endDate = payment.thru;
             let paymentAmount = parseFloat(payment.amount);
 
-            let currentIndex = convertDateToIndex(startDate, startDate);
-            let endIndex = convertDateToIndex(endDate, startDate);
+            let currentIndex = convertDateToIndex(recurringStartDate, loanStartDate);
+            let endIndex = convertDateToIndex(endDate, loanStartDate);
 
             while (currentIndex <= endIndex) {
                 extraPaymentsMap[currentIndex] = (extraPaymentsMap[currentIndex] || 0) + paymentAmount; // Additive
@@ -164,13 +164,13 @@ function processExtraPayments(extraPayments, startDate) {
 
 // Function to generate amortization schedule
 function generateAmortizationSchedule(data) {
-    const { loanAmount, interestRate, loanTerm, extraPayments, scheduleType, startDate, outputColumns } = data;
+    const { loanAmount, interestRate, loanTerm, extraPayments, scheduleType, loanStartDate, outputColumns } = data;
 
     let months = loanTerm * 12;
     let monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, months);
     let balance = parseFloat(loanAmount);
-    let startIndex = convertDateToIndex(startDate, startDate);
-    let extraPaymentsMap = processExtraPayments(extraPayments, startDate);
+    let startIndex = convertDateToIndex(loanStartDate, loanStartDate); // Start index from loan start date
+    let extraPaymentsMap = processExtraPayments(extraPayments, loanStartDate);
 
     let schedule = [];
     for (let i = 0; i < months; i++) {
@@ -186,7 +186,7 @@ function generateAmortizationSchedule(data) {
 
         // Add the row to the schedule
         schedule.push({
-            Date: new Date(new Date(startDate).setMonth(new Date(startDate).getMonth() + i)).toISOString().split('T')[0],
+            Date: new Date(new Date(loanStartDate).setMonth(new Date(loanStartDate).getMonth() + i)).toISOString().split('T')[0],
             Principal: principalPayment.toFixed(2),
             Interest: interestPayment.toFixed(2),
             'Extra Principal': extraPayment.toFixed(2),
