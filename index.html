@@ -99,7 +99,7 @@
 <body>
 
 <div class="container">
-    <h1>Amortization Schedule Generator v0.4</h1>
+    <h1>Amortization Schedule with Extra Payments</h1>
 
     <input type="file" id="json-file" accept=".json" />
     
@@ -243,4 +243,27 @@ document.getElementById('json-file').addEventListener('change', function(event) 
     if (file && file.type === 'application/json') {
         const reader = new FileReader();
         reader.onload = function(e) {
-            const data = JSON
+            const data = JSON.parse(e.target.result);
+            console.log('Loaded JSON:', data);  // Debugging line to check JSON loading
+            const schedule = generateAmortizationSchedule(data);
+            renderSchedule(schedule);
+
+            // Enable the download CSV button
+            document.getElementById('download-csv').addEventListener('click', function() {
+                const csv = convertToCSV(schedule);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'amortization_schedule.csv';
+                link.click();
+            });
+        };
+        reader.readAsText(file);
+    } else {
+        alert('Please upload a valid JSON file.');
+    }
+});
+</script>
+
+</body>
+</html>
