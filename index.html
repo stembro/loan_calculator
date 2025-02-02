@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amortization Schedule Generator</title>
+    <title>Amortization Schedule with Extra Payments</title>
     <style>
         /* Basic Reset */
         * {
@@ -99,7 +99,7 @@
 <body>
 
 <div class="container">
-    <h1>Amortization Schedule Generator v0.3</h1>
+    <h1>Amortization Schedule Generator v0.4</h1>
 
     <input type="file" id="json-file" accept=".json" />
     
@@ -189,6 +189,7 @@ function generateAmortizationSchedule(data) {
             Balance: balance.toFixed(2)
         });
 
+        // Move to next month
         date.setMonth(date.getMonth() + 1);
     }
 
@@ -242,24 +243,4 @@ document.getElementById('json-file').addEventListener('change', function(event) 
     if (file && file.type === 'application/json') {
         const reader = new FileReader();
         reader.onload = function(e) {
-            const data = JSON.parse(e.target.result);
-            const schedule = generateAmortizationSchedule(data);
-            renderSchedule(schedule);
-
-            // Enable the download CSV button
-            document.getElementById('download-csv').addEventListener('click', function() {
-                const csv = convertToCSV(schedule);
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = 'amortization_schedule.csv';
-                link.click();
-            });
-        };
-        reader.readAsText(file);
-    }
-});
-</script>
-
-</body>
-</html>
+            const data = JSON
