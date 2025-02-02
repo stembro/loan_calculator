@@ -1,5 +1,14 @@
 // Wait until the DOM content is fully loaded before running the script
 document.addEventListener('DOMContentLoaded', function () {
+    // Check if the file input element is available
+    const jsonFileInput = document.getElementById('json-file');
+    if (!jsonFileInput) {
+        alert("File input element not found! Please check the HTML.");
+        return;
+    }
+
+    alert("File input element is ready!"); // Debugging alert to confirm the file input is available.
+
     // Helper function to calculate monthly payment
     function calculateMonthlyPayment(loanAmount, interestRate, months) {
         let monthlyInterestRate = (interestRate / 100) / 12;
@@ -133,9 +142,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Function to handle file input and process the data
-    document.getElementById('json-file').addEventListener('change', function(event) {
+    jsonFileInput.addEventListener('change', function(event) {
+        alert('File selected!'); // Debugging alert for file input
         const file = event.target.files[0];
-        alert('File selected: ' + file.name); // Debugging alert for file input
         if (file && file.type === 'application/json') {
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -159,5 +168,4 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Please upload a valid JSON file.');
         }
     });
-
 });
