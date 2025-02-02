@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amortization Schedule Generator v0.2</title>
+    <title>Amortization Schedule Generator</title>
     <style>
         /* Basic Reset */
         * {
@@ -99,7 +99,7 @@
 <body>
 
 <div class="container">
-    <h1>Amortization Schedule Generator v0.2</h1>
+    <h1>Amortization Schedule Generator v0.3</h1>
 
     <input type="file" id="json-file" accept=".json" />
     
@@ -132,16 +132,25 @@ function processExtraPayments(extraPayments, scheduleStartDate) {
 
             let currentDate = new Date(startDate + '-01');
             let endDateObj = new Date(endDate + '-01');
+
             while (currentDate <= endDateObj) {
                 let dateKey = currentDate.getFullYear() + '-' + (currentDate.getMonth() + 1).toString().padStart(2, '0');
-                
+
+                // For recurring monthly, apply every month
                 if (payment.type === 'recurring:monthly') {
                     extraPaymentsMap[dateKey] = (extraPaymentsMap[dateKey] || 0) + paymentAmount;
-                } else if (payment.type === 'recurring:yearly' && currentDate.getMonth() === 0) { // Only apply yearly payment in January
+                } 
+                // For recurring yearly, apply only in the specified month each year
+                else if (payment.type === 'recurring:yearly' && currentDate.getMonth() === 0) { // Apply only in January for yearly
                     extraPaymentsMap[dateKey] = (extraPaymentsMap[dateKey] || 0) + paymentAmount;
                 }
-                
-                currentDate.setFullYear(currentDate.getFullYear() + 1); // Move to next year
+
+                // Move to next month or year as needed
+                if (payment.type === 'recurring:monthly') {
+                    currentDate.setMonth(currentDate.getMonth() + 1);  // Move to next month for recurring:monthly
+                } else {
+                    currentDate.setFullYear(currentDate.getFullYear() + 1); // Move to next year for recurring:yearly
+                }
             }
         }
     });
