@@ -173,6 +173,7 @@
     const loanTerm = parseInt(document.getElementById('loanTerm').value);
     const scheduleType = document.getElementById('scheduleType').value;
 
+    // Collect extra payments
     const extraPayments = Array.from(document.getElementsByClassName('extraPaymentAmount')).map((_, i) => {
         return {
             amount: parseFloat(document.getElementsByClassName('extraPaymentAmount')[i].value) || 0,
@@ -186,51 +187,56 @@
     let monthlyRate = interestRate / 12;
     let monthlyPayment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -loanTerm * 12));
     let schedule = [];
+    let currentDate = new Date(startDate);
 
-    if (scheduleType === 'monthly') {
-        for (let i = 0; i < loanTerm * 12; i++) {
-            if (balance <= 0) break; // Stop if loan is already paid off
+    for (let i = 0; i < loanTerm * 12; i++) {
+        if (balance <= 0) break; // Stop if the loan is paid off
 
-            let interest = balance * monthlyRate;
-            let principal = monthlyPayment - interest;
-            
-            let currentDate = new Date(startDate);
-            currentDate.setMonth(currentDate.getMonth() + i);
-            const formattedDate = currentDate.toISOString().split('T')[0];
+        let interest = balance * monthlyRate;
+        let principal = monthlyPayment - interest;
+        let extraPayment = 0;
 
-            let extraPayment = 0;
-            extraPayments.forEach(extra => {
-                const recurringStart = new Date(extra.start);
-                const recurringEnd = new Date(extra.end);
-                if (extra.type === 'recurring' && currentDate >= recurringStart && currentDate <= recurringEnd) {
-                    extraPayment = extra.amount;
-                } else if (extra.type === 'one-time' && currentDate.toISOString().split('T')[0] === extra.start) {
-                    extraPayment = extra.amount;
-                }
-            });
+        // Get extra payments for this period
+        extraPayments.forEach(extra => {
+            const recurringStart = new Date(extra.start);
+            const recurringEnd = extra.end ? new Date(extra.end) : null;
+            const currentMonthYear = currentDate.toISOString().split('T')[0];
 
-            let totalPrincipal = principal + extraPayment;
-
-            if (totalPrincipal > balance) {
-                totalPrincipal = balance; // Prevent overpayment
-                extraPayment = totalPrincipal - principal;
+            if (extra.type === 'one-time' && currentMonthYear === extra.start) {
+                extraPayment += extra.amount;
+            } else if (
+                extra.type === 'recurring' &&
+                currentDate >= recurringStart &&
+                (!recurringEnd || currentDate <= recurringEnd)
+            ) {
+                extraPayment += extra.amount;
             }
+        });
 
-            balance -= totalPrincipal;
-
-            schedule.push({
-                period: i + 1,
-                date: formattedDate,
-                payment: monthlyPayment.toFixed(2),
-                principal: principal.toFixed(2),
-                interest: interest.toFixed(2),
-                extraPayment: extraPayment.toFixed(2),
-                totalPrincipal: totalPrincipal.toFixed(2),
-                balance: balance.toFixed(2)
-            });
-
-            if (balance <= 0) break; // Stop once balance is cleared
+        // Adjust payment to prevent overpaying
+        if (principal + extraPayment > balance) {
+            extraPayment = balance - principal;
         }
+
+        let totalPrincipal = principal + extraPayment;
+        balance -= totalPrincipal;
+
+        schedule.push({
+            period: i + 1,
+            date: currentDate.toISOString().split('T')[0],
+            payment: monthlyPayment.toFixed(2),
+            principal: principal.toFixed(2),
+            interest: interest.toFixed(2),
+            extraPayment: extraPayment.toFixed(2),
+            totalPrincipal: totalPrincipal.toFixed(2),
+            balance: balance.toFixed(2)
+        });
+
+        // Stop if loan is fully paid off
+        if (balance <= 0) break;
+
+        // Move to next month
+        currentDate.setMonth(currentDate.getMonth() + 1);
     }
 
     displaySchedule(schedule);
