@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let extraPaymentsMap = {};
 
         extraPayments.forEach(payment => {
-            console.log('Processing extra payment:', payment); // Debugging log for extra payments
+            alert('Processing extra payment: ' + JSON.stringify(payment)); // Debugging alert for extra payments
             if (payment.type === 'one-time') {
                 // Convert one-time payment date to index
                 const index = convertDateToIndex(payment.when, loanStartDate);
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        console.log('Extra Payments Map:', extraPaymentsMap); // Debugging log for extra payments map
+        alert('Extra Payments Map: ' + JSON.stringify(extraPaymentsMap)); // Debugging alert for extra payments map
         return extraPaymentsMap;
     }
 
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function generateAmortizationSchedule(data) {
         const { loanAmount, interestRate, loanTerm, extraPayments, scheduleType, loanStartDate, outputColumns } = data;
 
-        console.log('Generating amortization schedule with data:', data); // Debugging log for the incoming data
+        alert('Generating amortization schedule with data: ' + JSON.stringify(data)); // Debugging alert for the incoming data
 
         let months = loanTerm * 12;
         let monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, months);
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        console.log('Generated Schedule:', schedule); // Debugging log for the final schedule
+        alert('Generated Schedule: ' + JSON.stringify(schedule)); // Debugging alert for the final schedule
         return schedule;
     }
 
@@ -135,12 +135,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // Function to handle file input and process the data
     document.getElementById('json-file').addEventListener('change', function(event) {
         const file = event.target.files[0];
-        console.log('File selected:', file); // Debugging log for file input
+        alert('File selected: ' + file.name); // Debugging alert for file input
         if (file && file.type === 'application/json') {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = JSON.parse(e.target.result);
-                console.log('Loaded JSON:', data);  // Debugging log to check JSON loading
+                alert('Loaded JSON: ' + JSON.stringify(data));  // Debugging alert to check JSON loading
                 const schedule = generateAmortizationSchedule(data);
                 renderSchedule(schedule);
 
