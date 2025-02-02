@@ -166,72 +166,75 @@
             parentDiv.querySelector('.recurringEnd').disabled = !isRecurring;
         }
 
-        function generateSchedule() {
-            const startDate = document.getElementById('startDate').value;
-            const loanAmount = parseFloat(document.getElementById('loanAmount').value);
-            const interestRate = parseFloat(document.getElementById('interestRate').value) / 100;
-            const loanTerm = parseInt(document.getElementById('loanTerm').value);
-            const scheduleType = document.getElementById('scheduleType').value;
-            const extraPayments = Array.from(document.getElementsByClassName('extraPaymentAmount')).map((_, i) => {
-                return {
-                    amount: parseFloat(document.getElementsByClassName('extraPaymentAmount')[i].value) || 0,
-                    type: document.getElementsByClassName('extraPaymentType')[i].value,
-                    start: document.getElementsByClassName('recurringStart')[i].value,
-                    end: document.getElementsByClassName('recurringEnd')[i].value
-                };
+    function generateSchedule() {
+    const startDate = document.getElementById('startDate').value;
+    const loanAmount = parseFloat(document.getElementById('loanAmount').value);
+    const interestRate = parseFloat(document.getElementById('interestRate').value) / 100;
+    const loanTerm = parseInt(document.getElementById('loanTerm').value);
+    const scheduleType = document.getElementById('scheduleType').value;
+
+    const extraPayments = Array.from(document.getElementsByClassName('extraPaymentAmount')).map((_, i) => {
+        return {
+            amount: parseFloat(document.getElementsByClassName('extraPaymentAmount')[i].value) || 0,
+            type: document.getElementsByClassName('extraPaymentType')[i].value,
+            start: document.getElementsByClassName('recurringStart')[i].value,
+            end: document.getElementsByClassName('recurringEnd')[i].value
+        };
+    });
+
+    let balance = loanAmount;
+    let monthlyRate = interestRate / 12;
+    let monthlyPayment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -loanTerm * 12));
+    let schedule = [];
+
+    if (scheduleType === 'monthly') {
+        for (let i = 0; i < loanTerm * 12; i++) {
+            if (balance <= 0) break; // Stop if loan is already paid off
+
+            let interest = balance * monthlyRate;
+            let principal = monthlyPayment - interest;
+            
+            let currentDate = new Date(startDate);
+            currentDate.setMonth(currentDate.getMonth() + i);
+            const formattedDate = currentDate.toISOString().split('T')[0];
+
+            let extraPayment = 0;
+            extraPayments.forEach(extra => {
+                const recurringStart = new Date(extra.start);
+                const recurringEnd = new Date(extra.end);
+                if (extra.type === 'recurring' && currentDate >= recurringStart && currentDate <= recurringEnd) {
+                    extraPayment = extra.amount;
+                } else if (extra.type === 'one-time' && currentDate.toISOString().split('T')[0] === extra.start) {
+                    extraPayment = extra.amount;
+                }
             });
 
-            let balance = loanAmount;
-            let balanceWithoutExtra = loanAmount;
-            let monthlyRate = interestRate / 12;
-            let monthlyPayment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -loanTerm * 12));
-            let schedule = [];
+            let totalPrincipal = principal + extraPayment;
 
-            if (scheduleType === 'monthly') {
-                for (let i = 0; i < loanTerm * 12; i++) {
-                    let interest = balance * monthlyRate;
-                    let principal = monthlyPayment - interest;
-
-                    let currentDate = new Date(startDate);
-                    currentDate.setMonth(currentDate.getMonth() + i);
-                    const formattedDate = currentDate.toISOString().split('T')[0];
-
-                    let extraPayment = 0;
-                    extraPayments.forEach(extra => {
-                        const recurringStart = new Date(extra.start);
-                        const recurringEnd = new Date(extra.end);
-                        if (extra.type === 'recurring' && currentDate >= recurringStart && currentDate <= recurringEnd) {
-                            extraPayment = extra.amount;
-                        } else if (extra.type === 'one-time' && currentDate.toISOString().split('T')[0] === extra.start) {
-                            extraPayment = extra.amount;
-                        }
-                    });
-
-                    let totalPrincipal = principal + extraPayment;
-                    balanceWithoutExtra -= principal;
-                    balance -= totalPrincipal;
-
-                    if (balance < 0) balance = 0;
-                    if (balanceWithoutExtra < 0) balanceWithoutExtra = 0;
-
-                    schedule.push({
-                        period: i + 1,
-                        date: formattedDate,
-                        payment: monthlyPayment.toFixed(2),
-                        principal: principal.toFixed(2),
-                        interest: interest.toFixed(2),
-                        extraPayment: extraPayment.toFixed(2),
-                        totalPrincipal: totalPrincipal.toFixed(2),
-                        balanceWithExtra: balance.toFixed(2),
-                        balanceWithoutExtra: balanceWithoutExtra.toFixed(2)
-                    });
-
-                    if (balance <= 0) break;
-                }
+            if (totalPrincipal > balance) {
+                totalPrincipal = balance; // Prevent overpayment
+                extraPayment = totalPrincipal - principal;
             }
 
-            displaySchedule(schedule);
+            balance -= totalPrincipal;
+
+            schedule.push({
+                period: i + 1,
+                date: formattedDate,
+                payment: monthlyPayment.toFixed(2),
+                principal: principal.toFixed(2),
+                interest: interest.toFixed(2),
+                extraPayment: extraPayment.toFixed(2),
+                totalPrincipal: totalPrincipal.toFixed(2),
+                balance: balance.toFixed(2)
+            });
+
+            if (balance <= 0) break; // Stop once balance is cleared
         }
+    }
+
+    displaySchedule(schedule);
+    }
 
         function displaySchedule(schedule) {
             const scheduleDiv = document.getElementById('schedule');
