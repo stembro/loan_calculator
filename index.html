@@ -61,28 +61,6 @@
             background: #007bff;
             color: white;
         }
-        .extra-payments {
-            margin-top: 10px;
-        }
-        .extra-payments div {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-        }
-        .extra-payments div input, .extra-payments div select, .extra-payments div button {
-            flex: 1;
-            min-width: calc(20% - 10px);
-        }
-        .extra-payments div button {
-            flex: none;
-            min-width: auto;
-            width: auto;
-        }
-        .extra-payments div input[type="month"], .extra-payments div input[type="date"] {
-            max-width: 150px;
-        }
     </style>
 </head>
 <body>
@@ -106,8 +84,8 @@
                 <option value="monthly">Monthly</option>
             </select>
 
+            <h2>Adhoc Extra Payments</h2>
             <div class="extra-payments" id="extraPayments">
-                <h2>Adhoc Extra Payments</h2>
                 <button type="button" onclick="addExtraPayment()">Add Extra Payment</button>
             </div>
 
@@ -153,8 +131,7 @@
             const loanAmount = parseFloat(document.getElementById('loanAmount').value);
             const interestRate = parseFloat(document.getElementById('interestRate').value) / 100;
             const loanTerm = parseInt(document.getElementById('loanTerm').value);
-            const scheduleType = document.getElementById('scheduleType').value;
-
+            
             const extraPayments = Array.from(document.getElementsByClassName('extraPaymentAmount')).map((_, i) => {
                 return {
                     amount: parseFloat(document.getElementsByClassName('extraPaymentAmount')[i].value) || 0,
@@ -166,16 +143,19 @@
 
             let balance = loanAmount;
             let monthlyRate = interestRate / 12;
-            let monthlyPayment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -loanTerm * 12));
+            let totalPayments = loanTerm * 12;
+            let monthlyPayment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -totalPayments));
+
             let schedule = [];
             let currentDate = new Date(startDate);
 
-            for (let i = 0; i < loanTerm * 12; i++) {
+            for (let i = 0; i < totalPayments; i++) {
                 if (balance <= 0) break;
 
                 let interest = balance * monthlyRate;
                 let principal = monthlyPayment - interest;
                 let extraPayment = 0;
+
                 let currentMonthYear = currentDate.toISOString().substring(0, 7);
 
                 extraPayments.forEach(extra => {
@@ -184,8 +164,11 @@
 
                     if (extra.type === 'one-time' && currentMonthYear === extraStartMonth) {
                         extraPayment += extra.amount;
-                    } else if (extra.type === 'recurring' && currentMonthYear >= extraStartMonth &&
-                        (!extraEndMonth || currentMonthYear <= extraEndMonth)) {
+                    } else if (
+                        extra.type === 'recurring' &&
+                        currentMonthYear >= extraStartMonth &&
+                        (!extraEndMonth || currentMonthYear <= extraEndMonth)
+                    ) {
                         extraPayment += extra.amount;
                     }
                 });
@@ -205,6 +188,8 @@
                     interest = 0;
                     monthlyPayment = 0;
                 }
+
+                balance = Math.max(balance, 0);
 
                 schedule.push({
                     period: i + 1,
