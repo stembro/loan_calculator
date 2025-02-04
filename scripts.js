@@ -22,9 +22,11 @@ function toggleEditor() {
   if (isCollapsed) {
     editorContainer.classList.remove('collapsed');
     editorContainer.classList.add('expanded');
+    this.textContent = 'Hide Editor';
   } else {
     editorContainer.classList.remove('expanded');
     editorContainer.classList.add('collapsed');
+    this.textContent = 'Show Editor';
   }
 }
 
@@ -121,6 +123,10 @@ function generateAmortizationSchedule() {
     // Calculate total extra payment for this period
     let extraPaymentAmount = periodExtraPayments.reduce((sum, p) => sum + p.amount, 0);
     balance -= extraPaymentAmount;
+
+    if (balance <= 0) {
+      balance = 0;
+    }
 
     // Calculate interest and principal for this period
     const interestPayment = balance * monthlyRate;
