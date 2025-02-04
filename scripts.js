@@ -1,171 +1,204 @@
-// Wait until the DOM content is fully loaded before running the script
-document.addEventListener('DOMContentLoaded', function () {
-    // Check if the file input element is available
-    const jsonFileInput = document.getElementById('json-file');
-    if (!jsonFileInput) {
-        alert("File input element not found! Please check the HTML.");
-        return;
-    }
+let loanData = null;
+let amortizationSchedule = [];
 
-    alert("File input element is ready!"); // Debugging alert to confirm the file input is available.
+document.getElementById('jsonFile').addEventListener('change', handleFileUpload);
+document.getElementById('toggleEditor').addEventListener('click', toggleEditor);
+document.querySelector('.close').addEventListener('click', closeModal);
 
-    // Helper function to calculate monthly payment
-    function calculateMonthlyPayment(loanAmount, interestRate, months) {
-        let monthlyInterestRate = (interestRate / 100) / 12;
-        let payment = loanAmount * monthlyInterestRate / (1 - Math.pow(1 + monthlyInterestRate, -months));
-        return payment;
-    }
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    loanData = JSON.parse(e.target.result);
+    document.getElementById('jsonTextArea').value = JSON.stringify(loanData, null, 2);
+    refreshSchedule();
+  };
+  reader.readAsText(file);
+}
 
-    // Convert a year-month string to an index (1 = first month of loan term, 360 = last month)
-    function convertDateToIndex(yearMonth, loanStartDate) {
-        const startYearMonth = loanStartDate.split('-');
-        const [startYear, startMonth] = startYearMonth;
-        const [year, month] = yearMonth.split('-');
+function toggleEditor() {
+  const editorContainer = document.getElementById('editorContainer');
+  const isCollapsed = editorContainer.classList.contains('collapsed');
+  if (isCollapsed) {
+    editorContainer.classList.remove('collapsed');
+    editorContainer.classList.add('expanded');
+  } else {
+    editorContainer.classList.remove('expanded');
+    editorContainer.classList.add('collapsed');
+  }
+}
 
-        const yearsDifference = year - startYear;
-        const monthsDifference = month - startMonth;
+function refreshSchedule() {
+  try {
+    loanData = JSON.parse(document.getElementById('jsonTextArea').value);
+    generateAmortizationSchedule();
+  } catch (error) {
+    alert('Invalid JSON format');
+  }
+}
 
-        return yearsDifference * 12 + monthsDifference + 1; // +1 to make the first month 1, not 0
-    }
+function generateAmortizationSchedule() {
+  if (!loanData) return;
 
-    // Function to parse the extra payments and apply them to the schedule
-    function processExtraPayments(extraPayments, loanStartDate) {
-        let extraPaymentsMap = {};
+  const loanAmount = parseFloat(loanData.loanAmount);
+  const interestRate = parseFloat(loanData.interestRate) / 100;
+  const loanTermInMonths = loanData.loanTerm.includes('months')
+    ? parseInt(loanData.loanTerm)
+    : parseInt(loanData.loanTerm) * 12;
+  const firstPaymentDate = new Date(loanData.firstPaymentDate);
+  const extraPayments = loanData.extraPayments.map(payment => ({
+    ...payment,
+    amount: parseFloat(payment.amount),
+    begin: new Date(payment.begin),
+    end: new Date(payment.end),
+  }));
 
-        extraPayments.forEach(payment => {
-            alert('Processing extra payment: ' + JSON.stringify(payment)); // Debugging alert for extra payments
-            if (payment.type === 'one-time') {
-                // Convert one-time payment date to index
-                const index = convertDateToIndex(payment.when, loanStartDate);
-                extraPaymentsMap[index] = (extraPaymentsMap[index] || 0) + parseFloat(payment.amount); // Additive
-            } else if (payment.type.startsWith('recurring')) {
-                let recurringStartDate = payment.begin; // Renamed to avoid conflict with loan start date
-                let endDate = payment.thru;
-                let paymentAmount = parseFloat(payment.amount);
+  // Step 1: Expand recurring payments (e.g., monthly, yearly)
+  const expandedExtraPayments = [];
+  extraPayments.forEach(payment => {
+    if (payment.duration === 'monthly' || payment.duration === 'yearly') {
+      let paymentDate = new Date(payment.begin);
+      const endDate = new Date(payment.end);
 
-                let currentIndex = convertDateToIndex(recurringStartDate, loanStartDate);
-                let endIndex = convertDateToIndex(endDate, loanStartDate);
-
-                while (currentIndex <= endIndex) {
-                    extraPaymentsMap[currentIndex] = (extraPaymentsMap[currentIndex] || 0) + paymentAmount; // Additive
-
-                    if (payment.type === 'recurring:monthly') {
-                        currentIndex++;  // Move to next month
-                    } else if (payment.type === 'recurring:yearly') {
-                        currentIndex += 12;  // Move to next year
-                    }
-                }
-            }
+      // Generate payments for the duration of the period
+      while (paymentDate <= endDate) {
+        expandedExtraPayments.push({
+          amount: payment.amount,
+          begin: new Date(paymentDate),
+          end: new Date(paymentDate),
+          duration: 'once',
         });
 
-        alert('Extra Payments Map: ' + JSON.stringify(extraPaymentsMap)); // Debugging alert for extra payments map
-        return extraPaymentsMap;
-    }
-
-    // Function to generate amortization schedule
-    function generateAmortizationSchedule(data) {
-        const { loanAmount, interestRate, loanTerm, extraPayments, scheduleType, loanStartDate, outputColumns } = data;
-
-        alert('Generating amortization schedule with data: ' + JSON.stringify(data)); // Debugging alert for the incoming data
-
-        let months = loanTerm * 12;
-        let monthlyPayment = calculateMonthlyPayment(loanAmount, interestRate, months);
-        let balance = parseFloat(loanAmount);
-        let startIndex = convertDateToIndex(loanStartDate, loanStartDate); // Start index from loan start date
-        let extraPaymentsMap = processExtraPayments(extraPayments, loanStartDate);
-
-        let schedule = [];
-        for (let i = 0; i < months; i++) {
-            let interestPayment = balance * (interestRate / 100) / 12;
-            let principalPayment = monthlyPayment - interestPayment;
-
-            // First apply the regular payment (interest + principal)
-            balance -= principalPayment;
-
-            // Now apply any extra payment for the current month (based on index)
-            let extraPayment = extraPaymentsMap[startIndex + i] || 0;
-            balance -= extraPayment;  // Extra payments come at the end of the month
-
-            // Add the row to the schedule
-            schedule.push({
-                Date: new Date(new Date(loanStartDate).setMonth(new Date(loanStartDate).getMonth() + i)).toISOString().split('T')[0],
-                Principal: principalPayment.toFixed(2),
-                Interest: interestPayment.toFixed(2),
-                'Extra Principal': extraPayment.toFixed(2),
-                Balance: balance.toFixed(2)
-            });
+        // Move the payment date forward based on the duration
+        if (payment.duration === 'monthly') {
+          paymentDate.setMonth(paymentDate.getMonth() + 1);
+        } else if (payment.duration === 'yearly') {
+          paymentDate.setFullYear(paymentDate.getFullYear() + 1);
         }
-
-        alert('Generated Schedule: ' + JSON.stringify(schedule)); // Debugging alert for the final schedule
-        return schedule;
+      }
+    } else {
+      expandedExtraPayments.push(payment); // One-time payments
     }
+  });
 
-    // Function to render the schedule in HTML
-    function renderSchedule(schedule) {
-        const tableContainer = document.getElementById('schedule-container');
-        const table = document.createElement('table');
-        const headerRow = document.createElement('tr');
+  // Step 2: Determine periods based on startDate and firstPaymentDate
+  let periods = [];
+  let periodStartDate = new Date(loanData.startDate);
+  let periodEndDate = new Date(firstPaymentDate);
 
-        schedule[0] && Object.keys(schedule[0]).forEach(key => {
-            const th = document.createElement('th');
-            th.innerText = key;
-            headerRow.appendChild(th);
-        });
+  // Add the first period (startDate to firstPaymentDate)
+  periods.push({ start: periodStartDate, end: periodEndDate });
 
-        table.appendChild(headerRow);
+  // Now determine the subsequent periods
+  for (let i = 1; i <= loanTermInMonths; i++) {
+    periodStartDate = new Date(periodEndDate);
+    periodStartDate.setDate(periodStartDate.getDate() + 1); // One day after the last payment
 
-        schedule.forEach(row => {
-            const tr = document.createElement('tr');
-            Object.values(row).forEach(value => {
-                const td = document.createElement('td');
-                td.innerText = value;
-                tr.appendChild(td);
-            });
-            table.appendChild(tr);
-        });
+    // Move the end date to the next payment date
+    periodEndDate = new Date(periodStartDate);
+    periodEndDate.setMonth(periodEndDate.getMonth() + 1);
+    periodEndDate.setDate(periodEndDate.getDate() - 1); // One day before next payment date
 
-        tableContainer.innerHTML = '';
-        tableContainer.appendChild(table);
-    }
+    periods.push({ start: periodStartDate, end: periodEndDate });
+  }
 
-    // Function to convert schedule to CSV
-    function convertToCSV(schedule) {
-        const header = Object.keys(schedule[0]);
-        const rows = schedule.map(row => Object.values(row));
+  // Step 3: Calculate amortization and apply extra payments
+  const monthlyRate = interestRate / 12;
+  const monthlyPayment = loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, loanTermInMonths)) / (Math.pow(1 + monthlyRate, loanTermInMonths) - 1);
 
-        let csv = header.join(',') + '\n';
-        rows.forEach(row => {
-            csv += row.join(',') + '\n';
-        });
+  let balance = loanAmount;
+  let paymentDate = new Date(firstPaymentDate);
 
-        return csv;
-    }
+  amortizationSchedule = [];
 
-    // Function to handle file input and process the data
-    jsonFileInput.addEventListener('change', function(event) {
-        alert('File selected!'); // Debugging alert for file input
-        const file = event.target.files[0];
-        if (file && file.type === 'application/json') {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const data = JSON.parse(e.target.result);
-                alert('Loaded JSON: ' + JSON.stringify(data));  // Debugging alert to check JSON loading
-                const schedule = generateAmortizationSchedule(data);
-                renderSchedule(schedule);
-
-                // Enable the download CSV button
-                document.getElementById('download-csv').addEventListener('click', function() {
-                    const csv = convertToCSV(schedule);
-                    const blob = new Blob([csv], { type: 'text/csv' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = 'amortization_schedule.csv';
-                    link.click();
-                });
-            };
-            reader.readAsText(file);
-        } else {
-            alert('Please upload a valid JSON file.');
-        }
+  // Loop through each period and calculate payments
+  periods.forEach((period, index) => {
+    // Apply all extra payments that occurred within the current period
+    let periodExtraPayments = expandedExtraPayments.filter(payment => {
+      return payment.begin >= period.start && payment.end <= period.end;
     });
-});
+
+    // Calculate total extra payment for this period
+    let extraPaymentAmount = periodExtraPayments.reduce((sum, p) => sum + p.amount, 0);
+    balance -= extraPaymentAmount;
+
+    // Calculate interest and principal for this period
+    const interestPayment = balance * monthlyRate;
+    const principalPayment = monthlyPayment - interestPayment;
+    balance -= principalPayment;
+
+    amortizationSchedule.push({
+      paymentDate: new Date(paymentDate),
+      paymentAmount: monthlyPayment + extraPaymentAmount,
+      principalPayment: principalPayment,
+      interestPayment: interestPayment,
+      remainingBalance: Math.max(balance, 0),
+      extraPayments: periodExtraPayments,
+    });
+
+    // Increment the payment date by one month for the next period
+    paymentDate.setMonth(paymentDate.getMonth() + 1);
+  });
+
+  renderTable();
+}
+
+
+function renderTable() {
+  const tableBody = document.querySelector('#scheduleTable tbody');
+  tableBody.innerHTML = '';
+  amortizationSchedule.forEach((row, index) => {
+    const tr = document.createElement('tr');
+    tr.addEventListener('click', () => showExtraPayments(row.extraPayments));
+    tr.innerHTML = `
+      <td>${row.paymentDate.toLocaleDateString()}</td>
+      <td>${row.paymentAmount.toFixed(2)}</td>
+      <td>${row.principalPayment.toFixed(2)}</td>
+      <td>${row.interestPayment.toFixed(2)}</td>
+      <td>${row.remainingBalance.toFixed(2)}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+}
+
+function showExtraPayments(extraPayments) {
+  const extraPaymentsList = document.getElementById('extraPaymentsList');
+  extraPaymentsList.innerHTML = '';
+  extraPayments.forEach(payment => {
+    const li = document.createElement('li');
+    li.textContent = `Amount: $${payment.amount} on ${payment.begin.toLocaleDateString()}`;
+    extraPaymentsList.appendChild(li);
+  });
+
+  const modal = document.getElementById('extraPaymentsModal');
+  modal.style.display = "block";
+}
+
+function closeModal() {
+  const modal = document.getElementById('extraPaymentsModal');
+  modal.style.display = "none";
+}
+
+function downloadCSV() {
+  const csvRows = [];
+  const headers = ['Payment Date', 'Payment Amount', 'Principal Payment', 'Interest Payment', 'Remaining Balance'];
+  csvRows.push(headers.join(','));
+
+  amortizationSchedule.forEach(row => {
+    const rowData = [
+      row.paymentDate.toLocaleDateString(),
+      row.paymentAmount.toFixed(2),
+      row.principalPayment.toFixed(2),
+      row.interestPayment.toFixed(2),
+      row.remainingBalance.toFixed(2)
+    ];
+    csvRows.push(rowData.join(','));
+  });
+
+  const csvContent = csvRows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'amortization_schedule.csv';
+  link.click();
+}
