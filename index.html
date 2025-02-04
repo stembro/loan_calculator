@@ -12,11 +12,11 @@
 
     <div class="upload-section">
       <input type="file" id="jsonFile" accept=".json">
-      <button class="btn" onclick="refreshSchedule()">Refresh Schedule</button>
     </div>
 
     <div class="json-editor">
-      <button class="btn" id="toggleEditor">Show JSON Editor</button>
+      <button class="btn" id="toggleEditor">Show Editor</button>
+      <button class="btn" onclick="refreshSchedule()">Recalculate</button>
       <div id="editorContainer" class="editor-container collapsed">
         <textarea id="jsonTextArea" rows="10" cols="80"></textarea>
       </div>
