@@ -1,25 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amortization Schedule with Extra Payments</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amortization Schedule</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="container">
+    <h1>Amortization Schedule</h1>
 
-<div class="container">
-    <h1>Amortization Schedule with Extra Payments</h1>
-
-    <input type="file" id="json-file" accept=".json" />
-    
-    <div id="schedule-container">
-        <!-- The table will be populated dynamically -->
+    <div class="upload-section">
+      <input type="file" id="jsonFile" accept=".json">
+      <button class="btn" onclick="refreshSchedule()">Refresh Schedule</button>
     </div>
-    
-    <button id="download-csv">Download CSV</button>
-</div>
 
-<script src="scripts.js"></script>
+    <div class="json-editor">
+      <button class="btn" id="toggleEditor">Show JSON Editor</button>
+      <div id="editorContainer" class="editor-container collapsed">
+        <textarea id="jsonTextArea" rows="10" cols="80"></textarea>
+      </div>
+    </div>
+
+    <table id="scheduleTable">
+      <thead>
+        <tr>
+          <th>Payment Date</th>
+          <th>Payment Amount</th>
+          <th>Principal Payment</th>
+          <th>Interest Payment</th>
+          <th>Remaining Balance</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="extraPaymentsModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Extra Payments</h2>
+      <ul id="extraPaymentsList"></ul>
+    </div>
+  </div>
+
+  <script src="scripts.js"></script>
 </body>
 </html>
