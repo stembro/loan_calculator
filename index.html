@@ -1,49 +1,950 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Amortization Schedule</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Early Loan Payoff Calculator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Tailwind for the Inter font -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for better scrollability and appearance */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f7f7;
+        }
+        .container-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        th, td {
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+        }
+        /* Custom scrollbar for the table on webkit browsers */
+        #amortization-table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        #amortization-table-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        #amortization-table-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        /* Modal Overlay Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            max-width: 90%;
+            width: 450px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transition: transform 0.3s ease-out;
+        }
+    </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Amortization Schedule</h1>
+<body class="p-4 sm:p-8">
 
-    <div class="upload-section">
-      <input type="file" id="jsonFile" accept=".json">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 p-4 bg-white rounded-xl container-shadow">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Loan Payoff Scenario Planner</h1>
+            <p class="text-gray-600">Analyze the impact of extra payments on your loan term and total interest paid.</p>
+        </header>
+
+        <!-- Main Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- COLUMN 1: Loan Inputs & Scenarios -->
+            <div class="lg:col-span-1 space-y-6">
+
+                <!-- Loan Parameters -->
+                <div id="loan-inputs" class="bg-white p-6 rounded-xl container-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-700">Loan Parameters</h2>
+                    
+                    <div class="space-y-4">
+                        <label class="block">
+                            <span class="text-sm font-medium text-gray-700">Principal Amount ($)</span>
+                            <input type="number" id="principal-amount" value="200000" min="1000" step="1000" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                        </label>
+                        <label class="block">
+                            <span class="text-sm font-medium text-gray-700">Annual Interest Rate (%)</span>
+                            <input type="number" id="interest-rate" value="5.0" min="0.1" step="0.1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                        </label>
+                        <label class="block">
+                            <span class="text-sm font-medium text-gray-700">Term (Years)</span>
+                            <input type="number" id="term-years" value="30" min="1" max="50" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                        </label>
+                        <label class="block">
+                            <span class="text-sm font-medium text-gray-700">Loan Start Date</span>
+                            <input type="date" id="start-date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Extra Payments Section -->
+                <div id="extra-payments-container" class="bg-white p-6 rounded-xl container-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-700">Extra Payments</h2>
+                    <div id="extra-payments-list" class="space-y-4">
+                        <!-- Extra payments will be rendered here -->
+                    </div>
+                    
+                    <button id="add-one-time-btn" class="mt-4 w-full sm:w-auto px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition duration-150 mr-2">
+                        + One-Time Payment
+                    </button>
+                    <button id="add-recurring-btn" class="mt-4 w-full sm:w-auto px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 transition duration-150">
+                        + Recurring Payment
+                    </button>
+                </div>
+
+                <!-- Scenario Management -->
+                <div id="scenario-manager" class="bg-white p-6 rounded-xl container-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-700">Scenarios</h2>
+                    <div class="flex space-x-2 mb-4">
+                        <input type="text" id="scenario-name" placeholder="Scenario Name (e.g., 'Base Case')" class="flex-grow rounded-md border-gray-300 shadow-sm p-2 border">
+                        <button id="save-scenario-btn" class="px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600 transition duration-150">
+                            Save
+                        </button>
+                    </div>
+                    <select id="scenario-select" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border mb-4">
+                        <!-- Scenarios will be loaded here -->
+                        <option value="">-- Load Scenario --</option>
+                    </select>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="load-scenario-btn" class="px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-600 transition duration-150">
+                            Load Saved
+                        </button>
+                        <button id="delete-scenario-btn" class="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-150">
+                            Delete Saved
+                        </button>
+                        <!-- NEW: Export/Import Buttons -->
+                        <button id="export-json-btn" class="px-4 py-2 bg-gray-600 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-gray-700 transition duration-150">
+                            Export Scenario (JSON)
+                        </button>
+                        <button id="import-json-btn" class="px-4 py-2 bg-gray-600 text-white text-sm font-semibold rounded-lg shadow-md hover:bg-gray-700 transition duration-150">
+                            Import Scenario (JSON)
+                        </button>
+                        <input type="file" id="import-file-input" accept=".json" class="hidden">
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- COLUMN 2 & 3: Calculation & Results -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Summary & Calculate Button -->
+                <div class="bg-white p-6 rounded-xl container-shadow">
+                    
+                    <!-- Button Group for Calculate and Export -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button id="calculate-btn" class="flex-grow px-6 py-3 bg-indigo-600 text-white text-lg font-bold rounded-lg shadow-xl hover:bg-indigo-700 transition duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50">
+                            Calculate Payoff Schedule
+                        </button>
+                        <button id="export-csv-btn" class="sm:w-auto px-6 py-3 bg-gray-600 text-white text-lg font-bold rounded-lg shadow-xl hover:bg-gray-700 transition duration-200 focus:outline-none focus:ring-4 focus:ring-gray-500 focus:ring-opacity-50 disabled:opacity-50" disabled>
+                            Export CSV
+                        </button>
+                    </div>
+
+                    <div id="summary-results" class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div class="p-3 bg-indigo-50 rounded-lg">
+                            <p class="text-xs font-medium text-gray-500">Regular Payment</p>
+                            <p id="summary-payment" class="text-lg font-bold text-gray-900">$0.00</p>
+                        </div>
+                        <div class="p-3 bg-indigo-50 rounded-lg">
+                            <p class="text-xs font-medium text-gray-500">Total Interest</p>
+                            <p id="summary-total-interest" class="text-lg font-bold text-gray-900">$0.00</p>
+                        </div>
+                        <div class="p-3 bg-indigo-50 rounded-lg">
+                            <p class="text-xs font-medium text-gray-500">Original Term</p>
+                            <p id="summary-original-term" class="text-lg font-bold text-gray-900">0 Yrs (0 Mos)</p>
+                        </div>
+                        <div class="p-3 bg-indigo-50 rounded-lg">
+                            <p class="text-xs font-medium text-gray-500">New Payoff Date</p>
+                            <p id="summary-payoff-date" class="text-lg font-bold text-red-600">N/A</p>
+                        </div>
+                    </div>
+                    
+                    <div id="alert-box" class="hidden mt-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-md" role="alert">
+                        <p id="alert-message" class="font-medium"></p>
+                    </div>
+
+                </div>
+
+                <!-- Amortization Schedule Table -->
+                <div class="bg-white p-6 rounded-xl container-shadow">
+                    <h2 class="text-xl font-semibold mb-4 text-indigo-700">Amortization Schedule</h2>
+                    <div id="amortization-table-container" class="overflow-x-auto max-h-[60vh]">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                    <th class="text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="text-xs font-medium text-gray-500 uppercase tracking-wider">Principal Payment</th>
+                                    <th class="text-xs font-medium text-gray-500 uppercase tracking-wider">Interest Payment</th>
+                                    <th class="text-xs font-medium text-gray-500 uppercase tracking-wider">Extra Payment</th>
+                                    <th class="text-xs font-medium text-gray-500 uppercase tracking-wider">Accumulated Interest</th>
+                                    <th class="text-xs font-medium text-gray-500 uppercase tracking-wider">New Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="amortization-table-body" class="bg-white divide-y divide-gray-200 text-sm">
+                                <!-- Table rows will be inserted here -->
+                                <tr><td colspan="7" class="text-center py-4 text-gray-500">Click 'Calculate Payoff Schedule' to generate the report.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 
-    <div class="json-editor">
-      <button class="btn" id="toggleEditor">Show Editor</button>
-      <button class="btn" onclick="refreshSchedule()">Recalculate</button>
-      <div id="editorContainer" class="editor-container collapsed">
-        <textarea id="jsonTextArea" rows="10" cols="80"></textarea>
-      </div>
+    <!-- Payment Modal Structure -->
+    <div id="payment-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4 text-gray-800">Add Extra Payment</h3>
+            <form id="payment-form">
+                <input type="hidden" id="payment-type-field" value="">
+
+                <div class="space-y-4">
+                    <!-- Amount Field (Common) -->
+                    <label class="block">
+                        <span class="text-sm font-medium text-gray-700">Payment Amount ($)</span>
+                        <input type="number" id="payment-amount" min="1" step="any" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                    </label>
+
+                    <!-- Start/One-Time Date Field (Common) -->
+                    <label class="block">
+                        <span class="text-sm font-medium text-gray-700" id="date-label">Payment Date</span>
+                        <input type="date" id="payment-date" required
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                    </label>
+
+                    <!-- Recurrence Fields (Recurring Only) -->
+                    <div id="recurring-fields" class="space-y-4 hidden">
+                        <label class="block">
+                            <span class="text-sm font-medium text-gray-700">Recurrence Period</span>
+                            <select id="payment-period"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly (Annually)</option>
+                                <option value="bi-weekly">Bi-Weekly</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="daily">Daily</option>
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="text-sm font-medium text-gray-700">Optional End Date</span>
+                            <input type="date" id="payment-end-date"
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border">
+                            <p class="text-xs text-gray-500 mt-1">Leave blank to continue until the loan is paid off.</p>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="cancel-modal-btn"
+                            class="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-150">
+                        Save Payment
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
+    <!-- End Payment Modal Structure -->
 
-    <table id="scheduleTable">
-      <thead>
-        <tr>
-          <th>Payment Date</th>
-          <th>Payment Amount</th>
-          <th>Principal Payment</th>
-          <th>Interest Payment</th>
-          <th>Remaining Balance</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
 
-  <div id="extraPaymentsModal" class="modal">
-    <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>Extra Payments</h2>
-      <ul id="extraPaymentsList"></ul>
-    </div>
-  </div>
+    <script>
+        // Global utility function for formatting currency
+        const formatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
 
-  <script src="scripts.js"></script>
+        // Global Utility: Converts a number to currency string
+        const formatCurrency = (amount) => formatter.format(Math.max(0, amount));
+
+        // State to hold all extra payments
+        let extraPayments = [];
+        // State to hold the calculated schedule for export
+        let latestSchedule = [];
+        
+        // --- Date and Data Initialization & Setup ---
+        
+        // Get Modal DOM elements
+        const paymentModal = document.getElementById('payment-modal');
+        const paymentForm = document.getElementById('payment-form');
+        const modalTitle = document.getElementById('modal-title');
+        const paymentTypeField = document.getElementById('payment-type-field');
+        const dateLabel = document.getElementById('date-label');
+        const paymentDateInput = document.getElementById('payment-date');
+        const recurringFields = document.getElementById('recurring-fields');
+        const paymentAmountInput = document.getElementById('payment-amount');
+        const paymentPeriodInput = document.getElementById('payment-period');
+        const paymentEndDateInput = document.getElementById('payment-end-date');
+        
+        // NEW: Get Import Input Element
+        const importFileInput = document.getElementById('import-file-input');
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set default start date to the first day of the next month
+            const today = new Date();
+            const defaultStartDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            document.getElementById('start-date').value = defaultStartDate.toISOString().substring(0, 10);
+
+            // Load scenarios and initial state
+            loadScenariosFromStorage();
+            // Attach event listeners after loading scenarios
+            setupEventListeners();
+        });
+
+        // --- Core Financial Calculation Logic (Unchanged) ---
+
+        /**
+         * Calculates the standard fixed monthly payment (P) for an amortizing loan.
+         */
+        function calculateMonthlyPayment(principal, annualRate, termMonths) {
+            if (annualRate === 0) {
+                return principal / termMonths;
+            }
+            const monthlyRate = annualRate / 12;
+            const power = Math.pow(1 + monthlyRate, termMonths);
+            return principal * (monthlyRate * power) / (power - 1);
+        }
+
+        /**
+         * Iteratively generates the amortization schedule, incorporating extra payments.
+         */
+        function calculateAmortization() {
+            try {
+                // 1. Get Loan Parameters
+                const principal = parseFloat(document.getElementById('principal-amount').value);
+                const annualRate = parseFloat(document.getElementById('interest-rate').value) / 100;
+                const termYears = parseFloat(document.getElementById('term-years').value);
+                const startDateStr = document.getElementById('start-date').value;
+                
+                if (isNaN(principal) || principal <= 0 || isNaN(annualRate) || isNaN(termYears) || termYears <= 0 || !startDateStr) {
+                    throw new Error("Please enter valid positive values for Principal, Rate, and Term, and select a Start Date.");
+                }
+
+                const termMonths = termYears * 12;
+                const monthlyRate = annualRate / 12;
+                const regularPayment = calculateMonthlyPayment(principal, annualRate, termMonths);
+
+                // Initial setup
+                let balance = principal;
+                let accumulatedInterest = 0;
+                let accumulatedPrincipal = 0;
+                let schedule = [];
+                let paymentCount = 0;
+                const currentDate = new Date(startDateStr + 'T00:00:00'); // Use T00:00:00 to avoid timezone issues
+                
+                // Show regular payment in summary
+                document.getElementById('summary-payment').textContent = formatCurrency(regularPayment);
+                document.getElementById('summary-original-term').textContent = `${termYears} Yrs (${termMonths} Mos)`;
+
+                // 2. Main Amortization Loop
+                while (balance > 0 && paymentCount < termMonths + 240) { // Max 20 years extra to prevent infinite loop
+                    paymentCount++;
+
+                    // Calculate interest for the period based on the current balance
+                    const interestPayment = balance * monthlyRate;
+
+                    // Determine the scheduled payment date (first of the month)
+                    // The first payment is one month after the start date
+                    const scheduledPaymentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + paymentCount, currentDate.getDate());
+                    const scheduleDateStr = scheduledPaymentDate.toISOString().substring(0, 10);
+                    
+                    // --- Extra Payment Application Logic ---
+                    let totalExtraPayment = 0;
+
+                    extraPayments.forEach(p => {
+                        const amount = parseFloat(p.amount);
+                        if (isNaN(amount) || amount <= 0) return;
+
+                        let extraDue = 0;
+
+                        if (p.type === 'one-time') {
+                            // One-time payment: Apply full lump sum only on the specified date
+                            if (p.date === scheduleDateStr) {
+                                extraDue = amount;
+                            }
+                        } else if (p.type === 'recurring') {
+                            const startDate = new Date(p.startDate + 'T00:00:00');
+                            const endDate = p.endDate ? new Date(p.endDate + 'T00:00:00') : null;
+
+                            // Check start/end bounds
+                            if (scheduledPaymentDate >= startDate && (!endDate || scheduledPaymentDate <= endDate)) {
+                                
+                                switch (p.period) {
+                                    case 'monthly':
+                                        extraDue = amount; // Full amount every month
+                                        break;
+
+                                    case 'yearly':
+                                        // FIXED LOGIC: Apply full lump sum only if the month and day align 
+                                        // with the start month/day (the yearly anniversary).
+                                        if (scheduledPaymentDate.getMonth() === startDate.getMonth() &&
+                                            scheduledPaymentDate.getDate() === startDate.getDate()) {
+                                            extraDue = amount;
+                                        }
+                                        break;
+                                        
+                                    // For sub-monthly periods (daily, weekly, bi-weekly), we calculate a 
+                                    // monthly equivalent. Applying discrete lump sums for these periods 
+                                    // accurately would require a daily/weekly amortization loop, which is 
+                                    // typically beyond a standard monthly calculator's scope.
+                                    case 'daily': extraDue = amount * 365.25 / 12; break;
+                                    case 'weekly': extraDue = amount * 52 / 12; break;
+                                    case 'bi-weekly': extraDue = amount * 26 / 12; break;
+                                }
+                            }
+                        }
+                        
+                        totalExtraPayment += extraDue;
+                    });
+                    // --- End Extra Payment Application Logic ---
+
+                    // --- Payment Application ---
+
+                    // Total amount paid this month (Regular + Extra)
+                    let totalPayment = regularPayment + totalExtraPayment;
+                    let actualPrincipalPaid = 0;
+
+                    if (totalPayment > interestPayment) {
+                        // Standard case: Payment covers interest and reduces principal
+                        actualPrincipalPaid = totalPayment - interestPayment;
+                    } else if (totalPayment > 0) {
+                        // Negative amortization check: assuming regularPayment covers interest.
+                        if (regularPayment < interestPayment) {
+                            throw new Error("Negative amortization detected. The regular monthly payment is not covering the interest due. Check your inputs.");
+                        }
+                        actualPrincipalPaid = 0; // Cap principal reduction at 0 if totalPayment < interestPayment
+                    } else {
+                        break;
+                    }
+
+                    // Adjust payment for the final month if balance is small
+                    if (balance < actualPrincipalPaid) {
+                        actualPrincipalPaid = balance;
+                    }
+
+                    // Update accumulated values and balance
+                    balance = Math.max(0, balance - actualPrincipalPaid); // Balance cannot go below zero
+                    accumulatedInterest += interestPayment;
+                    accumulatedPrincipal += actualPrincipalPaid;
+
+                    // Add row to the schedule
+                    schedule.push({
+                        number: paymentCount,
+                        date: scheduledPaymentDate,
+                        principalPayment: actualPrincipalPaid,
+                        interestPayment: interestPayment,
+                        extraPayment: totalExtraPayment,
+                        accumulatedInterest: accumulatedInterest,
+                        accumulatedPrincipal: accumulatedPrincipal,
+                        newBalance: balance,
+                    });
+
+                    // Stop if loan is paid off
+                    if (balance <= 0.01) { // Use a small epsilon for floating point comparison
+                        break;
+                    }
+                }
+
+                // 3. Render Results
+                latestSchedule = schedule; // Store the schedule globally for export
+                renderAmortizationSchedule(schedule);
+                renderSummary(schedule, principal, termMonths);
+
+            } catch (error) {
+                showAlert(error.message);
+                console.error(error);
+                document.getElementById('amortization-table-body').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red-500 font-bold">${error.message}</td></tr>`;
+                document.getElementById('summary-total-interest').textContent = formatCurrency(0);
+                document.getElementById('summary-payoff-date').textContent = "N/A";
+            }
+        }
+        
+        // --- Export/Import JSON Logic (NEW) ---
+        
+        function exportScenarioJson() {
+            const data = getScenarioData();
+            const filename = 'loan_scenario_backup.json';
+            const jsonString = JSON.stringify(data, null, 2); // 2 spaces for formatting
+
+            // Create a Blob and trigger download
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showAlert("Scenario exported as JSON.", 'success');
+        }
+
+        function importScenarioJson() {
+            // Trigger the hidden file input click
+            importFileInput.click();
+        }
+
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.type !== "application/json") {
+                showAlert("Invalid file type. Please select a JSON file.", 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data || !data.loan || !data.extraPayments) {
+                        throw new Error("Invalid scenario file format.");
+                    }
+                    
+                    // Load Loan Data
+                    document.getElementById('principal-amount').value = data.loan.principal;
+                    document.getElementById('interest-rate').value = data.loan.rate;
+                    document.getElementById('term-years').value = data.loan.term;
+                    document.getElementById('start-date').value = data.loan.start_date;
+
+                    // Load Extra Payments
+                    extraPayments = data.extraPayments;
+                    renderExtraPayments();
+
+                    showAlert("Scenario imported successfully. Click 'Calculate' to see results.", 'success');
+                    
+                } catch (error) {
+                    showAlert(`Error loading scenario: ${error.message}`, 'error');
+                } finally {
+                    // Clear the file input so the same file can be selected again if needed
+                    event.target.value = ''; 
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- Export CSV Functionality (Unchanged) ---
+
+        /**
+         * Converts the amortization schedule to a CSV file and triggers a download.
+         */
+        function exportToCSV() {
+            if (latestSchedule.length === 0) {
+                showAlert("Please calculate the amortization schedule first.", 'error');
+                return;
+            }
+
+            // Headers - must match the data keys/order used below
+            const headers = [
+                "Payment #", 
+                "Date", 
+                "Principal Payment", 
+                "Interest Payment", 
+                "Extra Payment", 
+                "Accumulated Interest", 
+                "New Balance"
+            ];
+
+            // Helper to format values for CSV (date as YYYY-MM-DD, numbers as 2 decimal fixed)
+            const toCsvValue = (value) => {
+                if (value instanceof Date) {
+                    return value.toISOString().substring(0, 10);
+                }
+                return parseFloat(value).toFixed(2);
+            };
+
+            let csvContent = headers.join(',') + '\n';
+
+            latestSchedule.forEach(row => {
+                const data = [
+                    row.number,
+                    toCsvValue(row.date),
+                    toCsvValue(row.principalPayment),
+                    toCsvValue(row.interestPayment),
+                    toCsvValue(row.extraPayment),
+                    toCsvValue(row.accumulatedInterest),
+                    toCsvValue(row.newBalance)
+                ];
+                csvContent += data.join(',') + '\n';
+            });
+
+            // Create a Blob and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'loan_amortization_schedule.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url); // Clean up the object URL
+
+            showAlert("Export complete! Check your downloads folder.", 'success');
+        }
+
+
+        // --- Rendering Functions (Unchanged) ---
+
+        /**
+         * Renders the amortization schedule table.
+         */
+        function renderAmortizationSchedule(schedule) {
+            const tbody = document.getElementById('amortization-table-body');
+            tbody.innerHTML = ''; // Clear previous data
+            
+            // Enable the export button if there is a valid schedule
+            document.getElementById('export-csv-btn').disabled = schedule.length === 0;
+
+
+            if (schedule.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-gray-500">No schedule generated. Check your loan parameters.</td></tr>';
+                return;
+            }
+
+            schedule.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-100 transition duration-100';
+
+                tr.innerHTML = `
+                    <td class="whitespace-nowrap">${row.number}</td>
+                    <td class="whitespace-nowrap">${row.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td class="whitespace-nowrap font-medium text-green-700">${formatCurrency(row.principalPayment)}</td>
+                    <td class="whitespace-nowrap text-red-700">${formatCurrency(row.interestPayment)}</td>
+                    <td class="whitespace-nowrap text-blue-700">${formatCurrency(row.extraPayment)}</td>
+                    <td class="whitespace-nowrap">${formatCurrency(row.accumulatedInterest)}</td>
+                    <td class="whitespace-nowrap font-bold">${formatCurrency(row.newBalance)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /**
+         * Renders the summary results.
+         */
+        function renderSummary(schedule, principal, originalMonths) {
+            const finalRow = schedule[schedule.length - 1];
+            const totalInterest = finalRow ? finalRow.accumulatedInterest : 0;
+            const payoffDate = finalRow ? finalRow.date : 'N/A';
+            const newMonths = schedule.length;
+            const monthsSaved = originalMonths - newMonths;
+            const yearsSaved = Math.floor(monthsSaved / 12);
+            const remainingMonthsSaved = monthsSaved % 12;
+
+            document.getElementById('summary-total-interest').textContent = formatCurrency(totalInterest);
+            document.getElementById('summary-payoff-date').textContent = payoffDate === 'N/A' 
+                ? 'N/A' 
+                : `${payoffDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} (${newMonths} mos, ${yearsSaved}Y ${remainingMonthsSaved}M saved)`;
+        }
+
+        // --- Extra Payments Management UI & Modal Logic (Unchanged) ---
+        
+        function renderExtraPayments() {
+            const list = document.getElementById('extra-payments-list');
+            list.innerHTML = ''; // Clear previous data
+            
+            if (extraPayments.length === 0) {
+                list.innerHTML = '<p class="text-sm text-gray-500 italic">No extra payments added yet.</p>';
+                return;
+            }
+
+            extraPayments.forEach((p, index) => {
+                const isRecurring = p.type === 'recurring';
+                const div = document.createElement('div');
+                div.className = 'p-3 border border-gray-200 rounded-lg bg-gray-50';
+
+                let description;
+                if (isRecurring) {
+                    description = `
+                        <span class="font-bold text-blue-700">${formatCurrency(parseFloat(p.amount))}</span> 
+                        ${p.period} recurring payment, starting on 
+                        <span class="font-medium">${p.startDate}</span>. 
+                        ${p.endDate ? 'Ends on ' + p.endDate : 'Continues until paid off.'}
+                    `;
+                } else {
+                    description = `
+                        One-time payment of 
+                        <span class="font-bold text-green-700">${formatCurrency(parseFloat(p.amount))}</span> 
+                        on <span class="font-medium">${p.date}</span>.
+                    `;
+                }
+
+                div.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <p class="text-sm text-gray-800">${description}</p>
+                        <button onclick="removeExtraPayment(${index})" class="ml-4 text-red-500 hover:text-red-700 text-sm font-semibold">
+                            Remove
+                        </button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function removeExtraPayment(index) {
+            extraPayments.splice(index, 1);
+            renderExtraPayments();
+        }
+
+        // Functions to open the dynamic modal
+        function showPaymentModal(type) {
+            paymentForm.reset(); // Clear previous data
+            
+            // Set fields based on type
+            paymentTypeField.value = type;
+            
+            if (type === 'one-time') {
+                modalTitle.textContent = "Add One-Time Extra Payment";
+                dateLabel.textContent = "Payment Date";
+                recurringFields.classList.add('hidden');
+                paymentDateInput.setAttribute('required', 'true');
+                paymentPeriodInput.removeAttribute('required');
+            } else if (type === 'recurring') {
+                modalTitle.textContent = "Add Recurring Extra Payment";
+                dateLabel.textContent = "Start Date";
+                recurringFields.classList.remove('hidden');
+                paymentDateInput.setAttribute('required', 'true');
+                paymentPeriodInput.setAttribute('required', 'true');
+            }
+
+            // Set default date to today for convenience
+            paymentDateInput.value = new Date().toISOString().substring(0, 10);
+            
+            paymentModal.classList.remove('hidden');
+        }
+
+        function hidePaymentModal() {
+            paymentModal.classList.add('hidden');
+        }
+
+        // Handles the submission of the modal form
+        function handlePaymentSubmit(event) {
+            event.preventDefault(); // Stop default form submission
+
+            const type = paymentTypeField.value;
+            const amount = parseFloat(paymentAmountInput.value);
+            const date = paymentDateInput.value;
+            
+            // Basic validation
+            if (isNaN(amount) || amount <= 0) {
+                showAlert("Please enter a valid positive payment amount.");
+                return;
+            }
+            if (!date) {
+                showAlert("Please select a date.");
+                return;
+            }
+
+            if (type === 'one-time') {
+                extraPayments.push({
+                    type: 'one-time',
+                    amount: amount.toFixed(2),
+                    date: date
+                });
+                showAlert("One-time payment added successfully.", 'success');
+
+            } else if (type === 'recurring') {
+                const period = paymentPeriodInput.value;
+                const endDate = paymentEndDateInput.value || null;
+
+                extraPayments.push({
+                    type: 'recurring',
+                    amount: amount.toFixed(2),
+                    startDate: date,
+                    endDate: endDate,
+                    period: period
+                });
+                showAlert("Recurring payment added successfully.", 'success');
+            }
+
+            hidePaymentModal();
+            renderExtraPayments();
+        }
+
+        function createOneTimePayment() {
+            showPaymentModal('one-time');
+        }
+
+        function createRecurringPayment() {
+            showPaymentModal('recurring');
+        }
+
+
+        // --- Scenario Management Logic (Updated) ---
+
+        function getScenarioData() {
+            return {
+                loan: {
+                    principal: document.getElementById('principal-amount').value,
+                    rate: document.getElementById('interest-rate').value,
+                    term: document.getElementById('term-years').value,
+                    start_date: document.getElementById('start-date').value,
+                },
+                extraPayments: extraPayments
+            };
+        }
+
+        function saveScenario() {
+            const nameInput = document.getElementById('scenario-name');
+            const scenarioName = nameInput.value.trim();
+
+            if (!scenarioName) {
+                showAlert("Please enter a name for the scenario before saving locally.", 'error');
+                return;
+            }
+
+            const scenarios = JSON.parse(localStorage.getItem('loanScenarios') || '{}');
+            scenarios[scenarioName] = getScenarioData();
+            localStorage.setItem('loanScenarios', JSON.stringify(scenarios));
+            
+            nameInput.value = ''; // Clear input after saving
+            showAlert(`Scenario "${scenarioName}" saved locally successfully!`, 'success');
+            loadScenariosFromStorage(); // Refresh the dropdown
+        }
+
+        function loadScenario() {
+            const select = document.getElementById('scenario-select');
+            const scenarioName = select.value;
+
+            if (!scenarioName) {
+                showAlert("Please select a scenario to load.", 'error');
+                return;
+            }
+
+            const scenarios = JSON.parse(localStorage.getItem('loanScenarios') || '{}');
+            const scenario = scenarios[scenarioName];
+
+            if (scenario) {
+                // Apply data to fields
+                document.getElementById('principal-amount').value = scenario.loan.principal;
+                document.getElementById('interest-rate').value = scenario.loan.rate;
+                document.getElementById('term-years').value = scenario.loan.term;
+                document.getElementById('start-date').value = scenario.loan.start_date;
+                extraPayments = scenario.extraPayments;
+                renderExtraPayments();
+                showAlert(`Scenario "${scenarioName}" loaded from local storage. Click 'Calculate' to see results.`, 'success');
+            }
+        }
+        
+        function deleteScenario() {
+            const select = document.getElementById('scenario-select');
+            const scenarioName = select.value;
+
+            if (!scenarioName) {
+                showAlert("Please select a scenario to delete.", 'error');
+                return;
+            }
+
+            // NOTE: Using 'confirm' here as a replacement for the mandatory custom modal due to the simple nature of this application
+            if (confirm(`Are you sure you want to delete the local scenario "${scenarioName}"?`)) {
+                const scenarios = JSON.parse(localStorage.getItem('loanScenarios') || '{}');
+                delete scenarios[scenarioName];
+                localStorage.setItem('loanScenarios', JSON.stringify(scenarios));
+                showAlert(`Scenario "${scenarioName}" deleted.`, 'success');
+                loadScenariosFromStorage();
+            }
+        }
+
+        function loadScenariosFromStorage() {
+            const select = document.getElementById('scenario-select');
+            select.innerHTML = '<option value="">-- Load Scenario --</option>';
+
+            const scenarios = JSON.parse(localStorage.getItem('loanScenarios') || '{}');
+            
+            Object.keys(scenarios).forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+        }
+        
+        // --- Utility and Event Handlers ---
+
+        function showAlert(message, type = 'error') {
+            const alertBox = document.getElementById('alert-box');
+            const alertMessage = document.getElementById('alert-message');
+            
+            alertMessage.textContent = message;
+            alertBox.classList.remove('hidden', 'bg-red-100', 'border-red-500', 'text-red-700', 'bg-green-100', 'border-green-500', 'text-green-700');
+            
+            if (type === 'error') {
+                alertBox.classList.add('bg-red-100', 'border-red-500', 'text-red-700');
+            } else if (type === 'success') {
+                alertBox.classList.add('bg-green-100', 'border-green-500', 'text-green-700');
+            }
+
+            // Hide after 5 seconds
+            setTimeout(() => {
+                alertBox.classList.add('hidden');
+            }, 5000);
+        }
+
+        function setupEventListeners() {
+            document.getElementById('calculate-btn').addEventListener('click', calculateAmortization);
+            document.getElementById('export-csv-btn').addEventListener('click', exportToCSV);
+            
+            // Extra Payment Modal Listeners
+            document.getElementById('add-one-time-btn').addEventListener('click', createOneTimePayment);
+            document.getElementById('add-recurring-btn').addEventListener('click', createRecurringPayment);
+            document.getElementById('cancel-modal-btn').addEventListener('click', hidePaymentModal);
+            paymentForm.addEventListener('submit', handlePaymentSubmit);
+
+            // Scenario Management Listeners
+            document.getElementById('save-scenario-btn').addEventListener('click', saveScenario);
+            document.getElementById('load-scenario-btn').addEventListener('click', loadScenario);
+            document.getElementById('delete-scenario-btn').addEventListener('click', deleteScenario);
+            
+            // NEW: Export/Import JSON Listeners
+            document.getElementById('export-json-btn').addEventListener('click', exportScenarioJson);
+            document.getElementById('import-json-btn').addEventListener('click', importScenarioJson);
+            importFileInput.addEventListener('change', handleFileImport);
+            
+            // Initial render of extra payments (should be empty on load)
+            renderExtraPayments();
+        }
+
+    </script>
 </body>
 </html>
+
