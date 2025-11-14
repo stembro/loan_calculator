@@ -168,7 +168,7 @@
                         </button>
                     </div>
 
-                    <div id="summary-results" class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div id="summary-results" class="mt-6 grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
                         <div class="p-3 bg-indigo-50 rounded-lg">
                             <p class="text-xs font-medium text-gray-500">Regular Payment</p>
                             <p id="summary-payment" class="text-lg font-bold text-gray-900">$0.00</p>
@@ -176,6 +176,10 @@
                         <div class="p-3 bg-indigo-50 rounded-lg">
                             <p class="text-xs font-medium text-gray-500">Total Interest</p>
                             <p id="summary-total-interest" class="text-lg font-bold text-gray-900">$0.00</p>
+                        </div>
+                        <div class="p-3 bg-indigo-50 rounded-lg">
+                            <p class="text-xs font-medium text-gray-500">Interest Saved</p>
+                            <p id="summary-interest-saved" class="text-lg font-bold text-emerald-700">$0.00</p>
                         </div>
                         <div class="p-3 bg-indigo-50 rounded-lg">
                             <p class="text-xs font-medium text-gray-500">Original Term</p>
@@ -296,6 +300,7 @@
 
         // State to hold all extra payments
         let extraPayments = [];
+        let editingPaymentIndex = null;
         // State to hold the calculated schedule for export
         let latestSchedule = [];
         
@@ -390,6 +395,7 @@
                     let totalExtraPayment = 0;
 
                     extraPayments.forEach(p => {
+                        if (p.enabled === false) return;
                         const amount = parseFloat(p.amount);
                         if (isNaN(amount) || amount <= 0) return;
 
@@ -486,13 +492,14 @@
                 // 3. Render Results
                 latestSchedule = schedule; // Store the schedule globally for export
                 renderAmortizationSchedule(schedule);
-                renderSummary(schedule, principal, termMonths);
+                renderSummary(schedule, principal, termMonths, regularPayment);
 
             } catch (error) {
                 showAlert(error.message);
                 console.error(error);
                 document.getElementById('amortization-table-body').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red-500 font-bold">${error.message}</td></tr>`;
                 document.getElementById('summary-total-interest').textContent = formatCurrency(0);
+                document.getElementById('summary-interest-saved').textContent = formatCurrency(0);
                 document.getElementById('summary-payoff-date').textContent = "N/A";
             }
         }
@@ -548,7 +555,7 @@
                     document.getElementById('start-date').value = data.loan.start_date;
 
                     // Load Extra Payments
-                    extraPayments = data.extraPayments;
+                    extraPayments = (data.extraPayments || []).map(normalizeExtraPayment);
                     renderExtraPayments();
 
                     showAlert("Scenario imported successfully. Click 'Calculate' to see results.", 'success');
@@ -662,7 +669,7 @@
         /**
          * Renders the summary results.
          */
-        function renderSummary(schedule, principal, originalMonths) {
+        function renderSummary(schedule, principal, originalMonths, regularPayment = 0) {
             const finalRow = schedule[schedule.length - 1];
             const totalInterest = finalRow ? finalRow.accumulatedInterest : 0;
             const payoffDate = finalRow ? finalRow.date : 'N/A';
@@ -670,25 +677,37 @@
             const monthsSaved = originalMonths - newMonths;
             const yearsSaved = Math.floor(monthsSaved / 12);
             const remainingMonthsSaved = monthsSaved % 12;
+            const baselineInterest = Math.max(0, (regularPayment * originalMonths) - principal);
+            const interestSaved = Math.max(0, baselineInterest - totalInterest);
 
             document.getElementById('summary-total-interest').textContent = formatCurrency(totalInterest);
-            document.getElementById('summary-payoff-date').textContent = payoffDate === 'N/A' 
-                ? 'N/A' 
+            document.getElementById('summary-interest-saved').textContent = formatCurrency(interestSaved);
+            document.getElementById('summary-payoff-date').textContent = payoffDate === 'N/A'
+                ? 'N/A'
                 : `${payoffDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} (${newMonths} mos, ${yearsSaved}Y ${remainingMonthsSaved}M saved)`;
         }
 
-        // --- Extra Payments Management UI & Modal Logic (Unchanged) ---
-        
+        // --- Extra Payments Management UI & Modal Logic (Updated) ---
+
+        function normalizeExtraPayment(payment) {
+            if (!payment) return null;
+            return {
+                ...payment,
+                enabled: payment.enabled === false ? false : true,
+            };
+        }
+
         function renderExtraPayments() {
             const list = document.getElementById('extra-payments-list');
             list.innerHTML = ''; // Clear previous data
-            
+
             if (extraPayments.length === 0) {
                 list.innerHTML = '<p class="text-sm text-gray-500 italic">No extra payments added yet.</p>';
                 return;
             }
 
             extraPayments.forEach((p, index) => {
+                const isEnabled = p.enabled !== false;
                 const isRecurring = p.type === 'recurring';
                 const div = document.createElement('div');
                 div.className = 'p-3 border border-gray-200 rounded-lg bg-gray-50';
@@ -710,12 +729,22 @@
                 }
 
                 div.innerHTML = `
-                    <div class="flex items-start justify-between">
+                    <div class="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
                         <p class="text-sm text-gray-800">${description}</p>
-                        <button onclick="removeExtraPayment(${index})" class="ml-4 text-red-500 hover:text-red-700 text-sm font-semibold">
-                            Remove
-                        </button>
+                        <div class="flex items-center space-x-2">
+                            <label class="inline-flex items-center text-xs text-gray-600">
+                                <input type="checkbox" class="h-4 w-4 text-indigo-600 border-gray-300 rounded" ${isEnabled ? 'checked' : ''} onchange="toggleExtraPayment(${index}, this.checked)">
+                                <span class="ml-1">${isEnabled ? 'Included' : 'Excluded'}</span>
+                            </label>
+                            <button onclick="editExtraPayment(${index})" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
+                                Edit
+                            </button>
+                            <button onclick="removeExtraPayment(${index})" class="text-xs text-red-500 hover:text-red-700 font-semibold">
+                                Remove
+                            </button>
+                        </div>
                     </div>
+                    ${!isEnabled ? '<p class="text-xs text-amber-600 mt-2">Excluded from calculations.</p>' : ''}
                 `;
                 list.appendChild(div);
             });
@@ -726,35 +755,62 @@
             renderExtraPayments();
         }
 
+        function toggleExtraPayment(index, isIncluded) {
+            if (!extraPayments[index]) return;
+            extraPayments[index].enabled = isIncluded;
+            renderExtraPayments();
+        }
+
+        function editExtraPayment(index) {
+            if (!extraPayments[index]) return;
+            showPaymentModal(extraPayments[index].type, index);
+        }
+
         // Functions to open the dynamic modal
-        function showPaymentModal(type) {
+        function showPaymentModal(type, index = null) {
             paymentForm.reset(); // Clear previous data
-            
+            editingPaymentIndex = index;
+
+            let modalType = type;
+            if (index !== null && extraPayments[index]) {
+                const payment = extraPayments[index];
+                modalType = payment.type;
+                paymentAmountInput.value = parseFloat(payment.amount);
+
+                if (payment.type === 'one-time') {
+                    paymentDateInput.value = payment.date;
+                } else {
+                    paymentDateInput.value = payment.startDate;
+                    paymentPeriodInput.value = payment.period;
+                    paymentEndDateInput.value = payment.endDate || '';
+                }
+            } else {
+                paymentDateInput.value = new Date().toISOString().substring(0, 10);
+            }
+
             // Set fields based on type
-            paymentTypeField.value = type;
-            
-            if (type === 'one-time') {
-                modalTitle.textContent = "Add One-Time Extra Payment";
+            paymentTypeField.value = modalType;
+
+            if (modalType === 'one-time') {
+                modalTitle.textContent = index === null ? "Add One-Time Extra Payment" : "Edit One-Time Extra Payment";
                 dateLabel.textContent = "Payment Date";
                 recurringFields.classList.add('hidden');
                 paymentDateInput.setAttribute('required', 'true');
                 paymentPeriodInput.removeAttribute('required');
-            } else if (type === 'recurring') {
-                modalTitle.textContent = "Add Recurring Extra Payment";
+            } else if (modalType === 'recurring') {
+                modalTitle.textContent = index === null ? "Add Recurring Extra Payment" : "Edit Recurring Extra Payment";
                 dateLabel.textContent = "Start Date";
                 recurringFields.classList.remove('hidden');
                 paymentDateInput.setAttribute('required', 'true');
                 paymentPeriodInput.setAttribute('required', 'true');
             }
 
-            // Set default date to today for convenience
-            paymentDateInput.value = new Date().toISOString().substring(0, 10);
-            
             paymentModal.classList.remove('hidden');
         }
 
         function hidePaymentModal() {
             paymentModal.classList.add('hidden');
+            editingPaymentIndex = null;
         }
 
         // Handles the submission of the modal form
@@ -775,26 +831,46 @@
                 return;
             }
 
+            let paymentRecord = null;
+
             if (type === 'one-time') {
-                extraPayments.push({
+                paymentRecord = {
                     type: 'one-time',
                     amount: amount.toFixed(2),
-                    date: date
-                });
-                showAlert("One-time payment added successfully.", 'success');
+                    date: date,
+                    enabled: true,
+                };
 
             } else if (type === 'recurring') {
                 const period = paymentPeriodInput.value;
+                if (!period) {
+                    showAlert("Please select a recurrence period.");
+                    return;
+                }
                 const endDate = paymentEndDateInput.value || null;
 
-                extraPayments.push({
+                paymentRecord = {
                     type: 'recurring',
                     amount: amount.toFixed(2),
                     startDate: date,
                     endDate: endDate,
-                    period: period
-                });
-                showAlert("Recurring payment added successfully.", 'success');
+                    period: period,
+                    enabled: true,
+                };
+            }
+
+            if (!paymentRecord) {
+                showAlert("Unable to determine payment type.");
+                return;
+            }
+
+            if (editingPaymentIndex !== null && extraPayments[editingPaymentIndex]) {
+                paymentRecord.enabled = extraPayments[editingPaymentIndex].enabled === false ? false : true;
+                extraPayments[editingPaymentIndex] = paymentRecord;
+                showAlert("Extra payment updated successfully.", 'success');
+            } else {
+                extraPayments.push(paymentRecord);
+                showAlert(type === 'one-time' ? "One-time payment added successfully." : "Recurring payment added successfully.", 'success');
             }
 
             hidePaymentModal();
@@ -860,7 +936,7 @@
                 document.getElementById('interest-rate').value = scenario.loan.rate;
                 document.getElementById('term-years').value = scenario.loan.term;
                 document.getElementById('start-date').value = scenario.loan.start_date;
-                extraPayments = scenario.extraPayments;
+                extraPayments = (scenario.extraPayments || []).map(normalizeExtraPayment);
                 renderExtraPayments();
                 showAlert(`Scenario "${scenarioName}" loaded from local storage. Click 'Calculate' to see results.`, 'success');
             }
